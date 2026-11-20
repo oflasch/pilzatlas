@@ -88,10 +88,10 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
         <div className="flex flex-col justify-between gap-2 border-b border-[#D6D3C8] pb-2.5 sm:flex-row sm:items-end sm:gap-3 sm:pb-3.5">
           <div>
             <p className="text-[10.5px] font-medium text-[#4A5D52] sm:text-xs">
-              DWD ICON-D2 · 21d Rain Lag &amp; Soil Moisture
+              DWD ICON-D2 · 21-Tage-Regen &amp; Bodenfeuchte
             </p>
             <h1 className="text-lg font-bold tracking-tight text-[#132A1E] sm:text-2xl">
-              NRW 7-Day Fruiting Forecast
+              NRW 7-Tage-Pilzprognose
             </h1>
           </div>
 
@@ -118,7 +118,7 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
                 }`}
               >
                 <Sparkles className="h-3 w-3 shrink-0" />
-                <span>Oct Peak</span>
+                <span>Okt-Peak</span>
               </button>
             </div>
 
@@ -126,11 +126,12 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
               type="button"
               onClick={onRefreshWeather}
               disabled={weatherLoading}
-              aria-label="Sync DWD weather"
+              aria-label="DWD-Wetter aktualisieren"
               className="inline-flex h-9 items-center gap-1 rounded-lg border border-[#D6D3C8] bg-white px-2.5 text-[11px] font-semibold text-[#132A1E] hover:bg-[#EFECE4] disabled:opacity-50 shrink-0 sm:text-xs"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${weatherLoading ? 'animate-spin' : ''}`} />
-              <span>Sync</span>
+              <span className="sm:hidden">Laden</span>
+              <span className="hidden sm:inline">Aktualisieren</span>
             </button>
           </div>
         </div>
@@ -176,25 +177,25 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
                     </p>
                   </div>
                   {frost && (
-                    <Snowflake className="h-3.5 w-3.5 shrink-0 text-[#1D4ED8]" aria-label="Frost risk" />
+                    <Snowflake className="h-3.5 w-3.5 shrink-0 text-[#1D4ED8]" aria-label="Frostgefahr" />
                   )}
                 </div>
 
                 <div className="mt-1.5 grid grid-cols-3 gap-1 border-t border-[#EFECE4] pt-1.5 sm:mt-2 sm:pt-2">
                   <div>
-                    <span className="text-[9px] text-[#4A5D52] sm:text-[10px]">Rain</span>
+                    <span className="text-[9px] text-[#4A5D52] sm:text-[10px]">Regen</span>
                     <p className="font-mono text-[11.5px] font-semibold tabular-nums text-[#132A1E] sm:text-xs">
                       {lag.toFixed(0)}<span className="text-[8.5px] font-normal">mm</span>
                     </p>
                   </div>
                   <div>
-                    <span className="text-[9px] text-[#4A5D52] sm:text-[10px]">Moist</span>
+                    <span className="text-[9px] text-[#4A5D52] sm:text-[10px]">Feuchte</span>
                     <p className="font-mono text-[11.5px] font-semibold tabular-nums text-[#132A1E] sm:text-xs">
                       {(day.soilMoisture3to9 * 100).toFixed(0)}%
                     </p>
                   </div>
                   <div>
-                    <span className="text-[9px] text-[#4A5D52] sm:text-[10px]">Soil</span>
+                    <span className="text-[9px] text-[#4A5D52] sm:text-[10px]">Boden</span>
                     <p className="font-mono text-[11.5px] font-semibold tabular-nums text-[#132A1E] sm:text-xs">
                       {day.soilTemp6cmC.toFixed(0)}°C
                     </p>
@@ -212,14 +213,16 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-1">
               <div>
                 <h2 className="text-[13px] font-bold text-[#132A1E] sm:text-sm">
-                  {NRW_SUBREGIONS[selectedSubRegion].shortName} — Rain Lag &amp; Soil
+                  {NRW_SUBREGIONS[selectedSubRegion].shortName} — Regengedächtnis &amp; Boden
                 </h2>
                 <p className="text-[10.5px] text-[#4A5D52] sm:text-[11px]">
-                  Fruiting peaks 10–15d after soaking rain (shaded window)
+                  Fruchtkörper-Schub 10–15 Tage nach ergiebigem Regen (markiertes Fenster)
                 </p>
               </div>
               <span className="font-mono text-[10.5px] tabular-nums text-[#4A5D52]">
-                {weatherMode === 'peak-autumn' ? 'Oct Flush' : selectedDay.date}
+                {weatherMode === 'peak-autumn'
+                  ? 'Oktober-Schub'
+                  : new Date(`${selectedDay.date}T12:00:00`).toLocaleDateString('de-DE')}
               </span>
             </div>
 
@@ -227,7 +230,10 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
             <div className="mt-2.5 grid grid-cols-7 gap-1 sm:mt-3">
               {forecastSlice.map((d, offset) => {
                 const dt = new Date(`${d.date}T12:00:00`);
-                const label = offset === 0 ? 'Today' : dt.toLocaleDateString('en-GB', { weekday: 'short' });
+                const label =
+                  offset === 0
+                    ? 'Heute'
+                    : dt.toLocaleDateString('de-DE', { weekday: 'short' }).replace('.', '');
                 const active = forecastDayOffset === offset;
                 return (
                   <button
@@ -256,7 +262,7 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
             {/* Crisp Responsive SVG Precipitation Lag Chart */}
             <div className="mt-3">
               <div className="flex items-center justify-between text-[10.5px] text-[#4A5D52]">
-                <span>Past 17d rain → 7d forecast</span>
+                <span>17 Tage Rückblick → 7 Tage Prognose</span>
                 <span className="font-mono tabular-nums">Max {maxPrecip.toFixed(0)} mm</span>
               </div>
               <div className="mt-1 w-full">
@@ -264,7 +270,7 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
                   viewBox="0 0 600 150"
                   className="h-28 w-full sm:h-36"
                   role="img"
-                  aria-label="Daily precipitation history and 7-day forecast chart"
+                  aria-label="Diagramm der täglichen Niederschläge und 7-Tage-Prognose"
                 >
                   <line x1="0" y1="28" x2="600" y2="28" stroke="#EFECE4" strokeWidth="1" />
                   <line x1="0" y1="74" x2="600" y2="74" stroke="#EFECE4" strokeWidth="1" />
@@ -313,7 +319,7 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
                             fill="#C86D1F"
                             fontFamily="JetBrains Mono, monospace"
                           >
-                            Target
+                            Ziel
                           </text>
                         )}
                         {!isSelectedTarget && idx % 4 === 0 && (
@@ -325,7 +331,7 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
                             fill="#4A5D52"
                             fontFamily="JetBrains Mono, monospace"
                           >
-                            {day.date.slice(5)}
+                            {day.date.slice(8, 10)}.{day.date.slice(5, 7)}.
                           </text>
                         )}
                       </g>
@@ -336,15 +342,15 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
               <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-[#4A5D52]">
                 <span className="inline-flex items-center gap-1">
                   <span className="h-2 w-2 rounded-xs bg-[#1B4332]" />
-                  <span>7–15d lag</span>
+                  <span>7–15 T. Schubfenster</span>
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <span className="h-2 w-2 rounded-xs bg-[#C86D1F]" />
-                  <span>Selected day</span>
+                  <span>Gewählter Tag</span>
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <span className="h-2 w-2 rounded-xs bg-[#60A5FA]" />
-                  <span>Forecast</span>
+                  <span>Prognose</span>
                 </span>
               </div>
             </div>
@@ -354,7 +360,7 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
               <div>
                 <div className="flex items-center gap-1 text-[10.5px] text-[#4A5D52]">
                   <CloudRain className="h-3 w-3 shrink-0 text-[#1B4332]" />
-                  <span className="truncate">Rain Lag</span>
+                  <span className="truncate">Regen-Lag</span>
                 </div>
                 <p className="mt-0.5 font-mono text-sm font-bold tabular-nums text-[#132A1E] sm:text-base">
                   {rainLagMm.toFixed(1)} mm
@@ -363,7 +369,7 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
               <div>
                 <div className="flex items-center gap-1 text-[10.5px] text-[#4A5D52]">
                   <Droplets className="h-3 w-3 shrink-0 text-[#1B4332]" />
-                  <span className="truncate">Soil Moist</span>
+                  <span className="truncate">Bodenfeuchte</span>
                 </div>
                 <p className="mt-0.5 font-mono text-sm font-bold tabular-nums text-[#132A1E] sm:text-base">
                   {(selectedDay.soilMoisture3to9 * 100).toFixed(0)}%
@@ -372,7 +378,7 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
               <div>
                 <div className="flex items-center gap-1 text-[10.5px] text-[#4A5D52]">
                   <Thermometer className="h-3 w-3 shrink-0 text-[#C86D1F]" />
-                  <span className="truncate">Soil / Air</span>
+                  <span className="truncate">Boden / Luft</span>
                 </div>
                 <p className="mt-0.5 font-mono text-sm font-bold tabular-nums text-[#132A1E] sm:text-base">
                   {selectedDay.soilTemp6cmC.toFixed(0)}° / {selectedDay.minAirTempC.toFixed(0)}°C
@@ -385,10 +391,10 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
           <div className="rounded-xl border border-[#D6D3C8] bg-white p-3 sm:rounded-2xl sm:p-4 lg:col-span-5">
             <div className="flex items-baseline justify-between gap-2">
               <h2 className="text-[13px] font-bold text-[#132A1E] sm:text-sm">
-                Best Open Stands · {NRW_SUBREGIONS[selectedSubRegion].shortName}
+                Beste offene Flächen · {NRW_SUBREGIONS[selectedSubRegion].shortName}
               </h2>
               <span className="font-mono text-[10.5px] tabular-nums text-[#4A5D52]">
-                {topStands.length} stands
+                {topStands.length} Flächen
               </span>
             </div>
 
@@ -430,7 +436,7 @@ export const ForecastView: React.FC<ForecastViewProps> = ({
                 onClick={() => setShowAllStands((v) => !v)}
                 className="mt-2 min-h-[36px] w-full rounded-lg border border-[#D6D3C8] bg-[#F7F6F2] text-xs font-semibold text-[#132A1E] hover:bg-[#EFECE4]"
               >
-                {showAllStands ? 'Show Top 10 Stands' : `Show All ${topStands.length} Stands`}
+                {showAllStands ? 'Top 10 anzeigen' : `Alle ${topStands.length} Flächen anzeigen`}
               </button>
             )}
           </div>

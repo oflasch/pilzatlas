@@ -202,11 +202,11 @@ async function fetchSubRegionOpenMeteo(subRegion: SubRegionId): Promise<SubRegio
   const url = `https://api.open-meteo.com/v1/dwd-icon?${params.toString()}`;
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Open-Meteo DWD ICON request failed (${res.status})`);
+    throw new Error(`Open-Meteo DWD-ICON-Abruf fehlgeschlagen (${res.status})`);
   }
   const data = (await res.json()) as OpenMeteoResponse;
   if (!data.hourly || data.hourly.time.length === 0) {
-    throw new Error('Open-Meteo response missing hourly weather series');
+    throw new Error('Open-Meteo-Antwort enthält keine stündlichen Wetterdaten');
   }
 
   const days = aggregateHourlyToDaily(data.hourly);
@@ -271,7 +271,7 @@ export async function fetchAllNRWWeather(forceRefresh = false): Promise<{
     return {
       weather: fallback,
       fromCache: true,
-      error: 'Offline — using baseline seasonal NRW climate profile until online sync.',
+      error: 'Offline — nutzt saisonales NRW-Klimaprofil bis zur Online-Synchronisierung.',
     };
   }
 
@@ -294,7 +294,7 @@ export async function fetchAllNRWWeather(forceRefresh = false): Promise<{
         return {
           weather: map,
           fromCache: true,
-          error: 'Live DWD ICON sync unavailable — using last cached weather snapshot.',
+          error: 'Live-DWD-ICON-Abruf nicht verfügbar — nutzt letzten gespeicherten Wetterstand.',
         };
       }
     } catch {
@@ -304,7 +304,7 @@ export async function fetchAllNRWWeather(forceRefresh = false): Promise<{
     return {
       weather: fallback,
       fromCache: true,
-      error: err instanceof Error ? err.message : 'Unable to reach Open-Meteo DWD ICON API.',
+      error: err instanceof Error ? err.message : 'Open-Meteo DWD-ICON-API nicht erreichbar.',
     };
   }
 }

@@ -52,7 +52,7 @@ const SUBREGION_BASELINES: SubRegionBaseline[] = [
     id: 'ruhr-niederrhein',
     shortName: 'Ruhr / Niederrhein',
     center: [51.48, 6.95],
-    geologySummary: 'Rhine-Ruhr terrace sands, loess & Carboniferous sandstone',
+    geologySummary: 'Rhein-Ruhr-Terrassensande, Löss & Karbon-Sandstein',
     typicalPh: 5.2,
     typicalElevationM: 95,
     defaultTexture: 'braunerde',
@@ -63,7 +63,7 @@ const SUBREGION_BASELINES: SubRegionBaseline[] = [
     id: 'bergisches-land',
     shortName: 'Bergisches Land',
     center: [51.07, 7.46],
-    geologySummary: 'Devonian slate, greywacke & humid Oberberg Siepen valleys',
+    geologySummary: 'Devonischer Schiefer, Grauwacke & luftfeuchte Oberbergische Siepen',
     typicalPh: 4.8,
     typicalElevationM: 315,
     defaultTexture: 'acidic-slate-loam',
@@ -74,7 +74,7 @@ const SUBREGION_BASELINES: SubRegionBaseline[] = [
     id: 'sauerland-siegerland',
     shortName: 'Sauerland / Siegerland',
     center: [51.18, 8.22],
-    geologySummary: 'Devonian Rothaar slate, quartzite & acidic highland loam',
+    geologySummary: 'Devonischer Rothaarschiefer, Quarzit & saurer Berglehm',
     typicalPh: 4.5,
     typicalElevationM: 530,
     defaultTexture: 'acidic-slate-loam',
@@ -85,7 +85,7 @@ const SUBREGION_BASELINES: SubRegionBaseline[] = [
     id: 'eifel-boerde',
     shortName: 'Eifel / Börde',
     center: [50.64, 6.52],
-    geologySummary: 'Rhenish slate hills, Buntsandstein & Eifel limestone',
+    geologySummary: 'Rheinisches Schiefergebirge, Buntsandstein & Eifelkalk',
     typicalPh: 5.1,
     typicalElevationM: 420,
     defaultTexture: 'acidic-slate-loam',
@@ -96,7 +96,7 @@ const SUBREGION_BASELINES: SubRegionBaseline[] = [
     id: 'muensterland',
     shortName: 'Münsterland',
     center: [51.96, 7.55],
-    geologySummary: 'Glacial cover sands, Hohe Mark podsols & Baumberge marl',
+    geologySummary: 'Eiszeitliche Decksande, Hohe-Mark-Podsole & Baumberger Kalkmergel',
     typicalPh: 5.0,
     typicalElevationM: 78,
     defaultTexture: 'sandy-podsol',
@@ -107,7 +107,7 @@ const SUBREGION_BASELINES: SubRegionBaseline[] = [
     id: 'ostwestfalen-lippe',
     shortName: 'OWL / Teutoburg',
     center: [51.84, 8.84],
-    geologySummary: 'Teutoburg Muschelkalk ridges, Egge sandstone & Weser loam',
+    geologySummary: 'Teutoburger Muschelkalk, Eggesandstein & Weserbergland-Lehm',
     typicalPh: 5.8,
     typicalElevationM: 280,
     defaultTexture: 'braunerde',
@@ -499,7 +499,7 @@ async function fetchLanuvProtectedAreas(bounds: GeodataBounds): Promise<{
         const sr = closestSubRegion(centroid[0], centroid[1]);
         const stand: NRWForestStand = {
           id: `lanuv-${layer.prefix}-${objId}-${idx}`,
-          name: rankedRings.length > 1 ? `${siteName} (Part ${idx + 1})` : siteName,
+          name: rankedRings.length > 1 ? `${siteName} (Teil ${idx + 1})` : siteName,
           subRegion: sr.id,
           source: 'nrw-wfs-nsg',
           coordinates: simplified,
@@ -516,7 +516,7 @@ async function fetchLanuvProtectedAreas(bounds: GeodataBounds): Promise<{
           valleyHumidityBonus: sr.defaultHumidity,
           isProtectedNSG: true,
           nsgName: localId ? `${siteName} (${localId})` : siteName,
-          notes: `Official surveyed boundary from LANUV NRW (${layer.label}, dl-de/zero-2-0). Leaving marked paths and collecting mushrooms are strictly prohibited.`,
+          notes: `Amtlich vermessene Schutzgebietsgrenze des LANUV NRW (${layer.label}, dl-de/zero-2-0). Das Verlassen der Wege und Pilzesammeln sind streng verboten.`,
           officialMeta: {
             dataset: `LANUV NRW · ${layer.label}`,
             localId,
@@ -666,8 +666,8 @@ function parseFskProperties(
 
   const geologyParts = [
     basenText ? `FSK05 ${basenText}` : null,
-    gwhText ? `Water: ${gwhText}` : null,
-    nfk ? `NFK ${nfk}` : null,
+    gwhText ? `Wasser: ${gwhText}` : null,
+    nfk ? `nFK ${nfk}` : null,
   ].filter(Boolean);
 
   return {
@@ -679,7 +679,7 @@ function parseFskProperties(
     hostComposition,
     geology: geologyParts.length > 0 ? geologyParts.join(' · ') : baseline.geologySummary,
     officialMeta: {
-      dataset: 'Geologischer Dienst NRW · FSK05 (1:5,000)',
+      dataset: 'Geologischer Dienst NRW · FSK05 (1:5.000)',
       parcelCode,
       standortTyp: standortTyp || undefined,
       basenText: basenText || undefined,
@@ -730,7 +730,7 @@ async function fetchGdNrwFsk05(bounds: GeodataBounds): Promise<{
       const parcelCode = parsed.officialMeta.parcelCode ?? objId;
       const wetTitle = parsed.officialMeta.wetSummary
         ? parsed.officialMeta.wetSummary.split(' · ')[0]
-        : 'Forestry Site';
+        : 'Forststandort';
 
       const stand: NRWForestStand = {
         id: `fsk05-${objId}`,
@@ -751,8 +751,8 @@ async function fetchGdNrwFsk05(bounds: GeodataBounds): Promise<{
         valleyHumidityBonus: parsed.valleyHumidityBonus,
         isProtectedNSG: false,
         notes: parsed.officialMeta.standortTyp
-          ? `Official Geologischer Dienst NRW 1:5,000 site survey: ${parsed.officialMeta.standortTyp}`
-          : 'Official Geologischer Dienst NRW 1:5,000 Forstliche Standortkarte polygon.',
+          ? `Amtliche Forstliche Standortkartierung (GD NRW, 1:5.000): ${parsed.officialMeta.standortTyp}`
+          : 'Amtliche Forstliche Standortkarte (FSK05, 1:5.000) des Geologischen Dienstes NRW.',
         officialMeta: parsed.officialMeta,
       };
 
@@ -766,7 +766,7 @@ async function fetchGdNrwFsk05(bounds: GeodataBounds): Promise<{
     indexed.sort((a, b) => b.stand.areaHectares - a.stand.areaHectares);
     return { indexed, warnings };
   } catch (err) {
-    warnings.push(`GD NRW FSK05 unavailable: ${err instanceof Error ? err.message : 'timeout'}`);
+    warnings.push(`GD NRW FSK05 nicht erreichbar: ${err instanceof Error ? err.message : 'Zeitüberschreitung'}`);
     return { indexed: [], warnings };
   }
 }
@@ -1012,7 +1012,7 @@ async function fetchWaldNrwForests(
             hostComposition,
             geology: matchedFsk
               ? matchedFsk.parsed.geology
-              : `${baseline.geologySummary} (Naturraum baseline)`,
+              : `${baseline.geologySummary} (Naturraum-Basis)`,
             soilTexture: matchedFsk ? matchedFsk.parsed.soilTexture : baseline.defaultTexture,
             soilPh: matchedFsk ? matchedFsk.parsed.soilPh : baseline.typicalPh,
             elevationM: matchedFsk ? matchedFsk.parsed.elevationM : baseline.typicalElevationM,
@@ -1023,8 +1023,8 @@ async function fetchWaldNrwForests(
               : baseline.defaultHumidity,
             isProtectedNSG: false,
             notes: matchedFsk
-              ? `Official Basis-DLM ${layer.germanLabel} polygon (${mem.standDate ?? 'NRW'}) spatially enriched with Geologischer Dienst NRW FSK05 soil & water data (${matchedFsk.parsed.officialMeta.basenText ?? 'surveyed'}).`
-              : `Official Basis-DLM / Wald & Holz NRW ${layer.germanLabel} surveyed forest polygon (${mem.standDate ?? 'NRW'}) paired with ${baseline.shortName} pH & microclimate baseline.`,
+              ? `Amtliches Basis-DLM-${layer.germanLabel}-Polygon (${mem.standDate ?? 'NRW'}), räumlich angereichert mit FSK05-Boden- & Wasserdaten des GD NRW (${matchedFsk.parsed.officialMeta.basenText ?? 'kartiert'}).`
+              : `Amtliches Basis-DLM-/Wald-&-Holz-NRW-${layer.germanLabel}-Polygon (${mem.standDate ?? 'NRW'}) mit pH- und Mikroklima-Basiswert für ${baseline.shortName}.`,
             officialMeta,
           },
         });
@@ -1059,7 +1059,7 @@ export async function fetchHighResNRWGeodata(rawBounds: GeodataBounds): Promise<
   const latSpan = clamped.north - clamped.south;
   const lngSpan = clamped.east - clamped.west;
   if (latSpan <= 0.002 || lngSpan <= 0.002) {
-    throw new Error('Invalid map bounding box.');
+    throw new Error('Ungültiger Kartenausschnitt.');
   }
 
   // If zoomed out wide, automatically query a focused ~12 x 14 km high-res window around the viewport center
@@ -1074,7 +1074,7 @@ export async function fetchHighResNRWGeodata(rawBounds: GeodataBounds): Promise<
       west: midLng - 0.085,
       east: midLng + 0.085,
     };
-    warnings.push('Loaded centered ~12 × 12 km high-resolution NRW survey window.');
+    warnings.push('Zentriertes ~12 × 12 km NRW-Detailfenster geladen.');
   }
 
   const cacheKey = getCacheKey(queryBounds);
@@ -1113,7 +1113,7 @@ export async function fetchHighResNRWGeodata(rawBounds: GeodataBounds): Promise<
 
   const sources: string[] = [];
   if (waldRes.stands.length > 0) sources.push('Wald & Holz NRW Basis-DLM WFS');
-  if (fskRes.indexed.length > 0) sources.push('GD NRW FSK05 (1:5,000)');
+  if (fskRes.indexed.length > 0) sources.push('GD NRW FSK05 (1:5.000)');
   if (lanuvRes.stands.length > 0) sources.push('LANUV NRW Schutzgebiete WFS');
 
   const payload: HighResGeodataResponse = {

@@ -23,7 +23,7 @@ export async function fetchHighResNRWStandsInBounds(
 
   const res = await fetch(`/api/nrw/geodata?${params.toString()}`, { signal });
   if (!res.ok) {
-    let detail = `Geodata proxy returned HTTP ${res.status}.`;
+    let detail = `Geodaten-Proxy lieferte HTTP ${res.status}.`;
     try {
       const errBody = (await res.json()) as { error?: string };
       if (errBody.error) detail = errBody.error;

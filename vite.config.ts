@@ -24,7 +24,7 @@ export default defineConfig(() => {
           name: 'PilzAtlas NRW',
           short_name: 'PilzAtlas',
           description:
-            'Offline mushroom foraging map and ecological predictor covering all of North Rhine-Westphalia (NRW).',
+            'Offline-Pilzkarte mit ökologischer Standortprognose und Pilzführer für ganz Nordrhein-Westfalen (NRW).',
           theme_color: '#1B4332',
           background_color: '#F7F6F2',
           display: 'standalone',

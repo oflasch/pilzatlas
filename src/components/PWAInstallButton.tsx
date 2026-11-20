@@ -24,7 +24,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({ compact = fa
         }`}
       >
         <Download className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" />
-        <span>Install</span>
+        <span>Installieren</span>
       </button>
     );
   }
@@ -39,8 +39,8 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({ compact = fa
         }`}
       >
         <Download className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" />
-        <span className="sm:hidden">{isIOS ? 'Add' : 'App'}</span>
-        <span className="hidden sm:inline">{isIOS ? 'Install on iOS' : 'Offline App'}</span>
+        <span className="sm:hidden">App</span>
+        <span className="hidden sm:inline">{isIOS ? 'Auf iOS installieren' : 'Offline-App'}</span>
       </button>
 
       {showGuide && (
@@ -53,12 +53,12 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({ compact = fa
           <div className="w-full max-w-sm rounded-2xl border border-[#D6D3C8] bg-[#FFFFFF] p-6 shadow-xl">
             <div className="flex items-start justify-between gap-4">
               <h3 id="pwa-install-guide-title" className="text-lg font-bold text-[#132A1E]">
-                {isIOS ? 'Install on iPhone or iPad' : 'Install for Offline Forest Use'}
+                {isIOS ? 'Auf iPhone oder iPad installieren' : 'Für Offline-Waldnutzung installieren'}
               </h3>
               <button
                 type="button"
                 onClick={() => setShowGuide(false)}
-                aria-label="Close install instructions"
+                aria-label="Installationshinweis schließen"
                 className="flex min-h-[44px] min-w-[44px] -mr-2 -mt-2 items-center justify-center rounded-lg text-[#4A5D52] hover:bg-[#F7F6F2] hover:text-[#132A1E]"
               >
                 <X className="h-5 w-5" />
@@ -69,28 +69,28 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({ compact = fa
                 <li className="flex items-start gap-2">
                   <span className="font-mono font-semibold text-[#132A1E]">1.</span>
                   <span>
-                    Tap the <strong className="text-[#132A1E]">Share</strong>{' '}
-                    <Share className="inline h-3.5 w-3.5 text-[#1B4332]" /> icon in Safari’s
-                    toolbar.
+                    Tippe auf das <strong className="text-[#132A1E]">Teilen</strong>-Symbol{' '}
+                    <Share className="inline h-3.5 w-3.5 text-[#1B4332]" /> in der Safari-Leiste.
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="font-mono font-semibold text-[#132A1E]">2.</span>
                   <span>
-                    Scroll down and select <strong className="text-[#132A1E]">Add to Home Screen</strong>.
+                    Scrolle nach unten und wähle{' '}
+                    <strong className="text-[#132A1E]">Zum Home-Bildschirm</strong>.
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="font-mono font-semibold text-[#132A1E]">3.</span>
-                  <span>Launch PilzAtlas from your home screen before entering the forest.</span>
+                  <span>Starte PilzAtlas vor dem Waldbesuch direkt vom Home-Bildschirm.</span>
                 </li>
               </ol>
             ) : (
               <p className="mt-3 text-sm leading-relaxed text-[#4A5D52]">
-                Open your browser menu and choose <strong className="text-[#132A1E]">Install app</strong>{' '}
-                or <strong className="text-[#132A1E]">Add to Home Screen</strong>. All field-guide
-                images and downloaded NRW topographic packs will then open even with zero cellular
-                signal.
+                Öffne das Browser-Menü und wähle{' '}
+                <strong className="text-[#132A1E]">App installieren</strong> oder{' '}
+                <strong className="text-[#132A1E]">Zum Startbildschirm hinzufügen</strong>. Alle
+                Pilzführer-Fotos und geladenen NRW-Topokarten stehen dann auch im Funkloch bereit.
               </p>
             )}
             <button
@@ -98,7 +98,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({ compact = fa
               onClick={() => setShowGuide(false)}
               className="mt-5 w-full min-h-[44px] rounded-xl bg-[#1B4332] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#132A1E] transition-colors"
             >
-              Got it
+              Verstanden
             </button>
           </div>
         </div>

@@ -56,8 +56,8 @@ interface TopographicMapViewProps {
 
 function formatDayChip(isoDate: string, offset: number): { top: string; bottom: string } {
   const d = new Date(`${isoDate}T12:00:00`);
-  const weekday = offset === 0 ? 'Today' : d.toLocaleDateString('en-GB', { weekday: 'short' });
-  const dayNum = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+  const weekday = offset === 0 ? 'Heute' : d.toLocaleDateString('de-DE', { weekday: 'short' }).replace('.', '');
+  const dayNum = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
   return { top: weekday, bottom: dayNum };
 }
 
@@ -232,7 +232,7 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
     if (!map || !basemapFallback) return;
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 17,
-      attribution: '&copy; OpenStreetMap contributors',
+      attribution: '&copy; OpenStreetMap-Mitwirkende',
       crossOrigin: true,
     }).addTo(map);
   }, [basemapFallback]);
@@ -425,10 +425,10 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
           ? 'LANUV NRW'
           : stand.source === 'osm-overpass'
           ? 'OSM'
-          : 'Overview';
+          : 'Übersicht';
 
       const tooltipHtml = stand.isProtectedNSG
-        ? `<div class="text-xs"><strong class="text-[#991B1B]">NSG · Picking Prohibited</strong><br/><span>${stand.name}</span> <span style="color:#6B7280">(${sourceNote})</span></div>`
+        ? `<div class="text-xs"><strong class="text-[#991B1B]">NSG · Sammelverbot</strong><br/><span>${stand.name}</span> <span style="color:#6B7280">(${sourceNote})</span></div>`
         : `<div class="text-xs"><strong>${stand.name}</strong><br/><span class="font-mono font-semibold">${pred.probability}%</span> · ${pred.bestSpeciesName} · <span style="color:#4A5D52">${stand.areaHectares} ha · ${sourceNote}</span></div>`;
 
       poly.bindTooltip(tooltipHtml, {
@@ -464,7 +464,7 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
   const handleLocateMe = () => {
     setGpsError(null);
     if (!navigator.geolocation) {
-      setGpsError('Geolocation is not supported by this browser.');
+      setGpsError('Standortermittlung wird von diesem Browser nicht unterstützt.');
       return;
     }
 
@@ -509,8 +509,8 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
         setGpsActive(false);
         setGpsError(
           err.code === err.PERMISSION_DENIED
-            ? 'Location permission denied. Enable GPS to track your forest trail position.'
-            : 'Unable to acquire GPS fix right now.'
+            ? 'Standortfreigabe abgelehnt. Bitte GPS erlauben, um deine Position im Wald zu sehen.'
+            : 'GPS-Position konnte gerade nicht ermittelt werden.'
         );
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -562,7 +562,7 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
                       : 'text-[#4A5D52] hover:bg-[#F7F6F2] hover:text-[#132A1E]'
                   }`}
                 >
-                  All NRW
+                  Ganz NRW
                 </button>
                 {NRW_SUBREGION_LIST.map((sr) => (
                   <button
@@ -586,7 +586,7 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
                   type="button"
                   disabled={!isOnline || highResLoading}
                   onClick={handleLoadHighResClick}
-                  title="Load surveyed Wald & Holz NRW, GD NRW FSK05 (1:5,000), and LANUV NSG polygons for this area"
+                  title="Amtliche Flächen von Wald & Holz NRW, GD NRW FSK05 (1:5.000) und LANUV NSG für diesen Ausschnitt laden"
                   className="hidden sm:inline-flex h-8 items-center gap-1 rounded-lg border border-[#1B4332] bg-[#1B4332] px-2 text-[11px] font-semibold text-white transition-colors hover:bg-[#132A1E] disabled:cursor-not-allowed disabled:opacity-55 whitespace-nowrap shrink-0"
                 >
                   {highResLoading ? (
@@ -594,7 +594,7 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
                   ) : (
                     <Radar className="h-3.5 w-3.5 shrink-0" />
                   )}
-                  <span>{highResLoading ? 'Loading…' : 'High-Res NRW'}</span>
+                  <span>{highResLoading ? 'Lädt…' : 'NRW-Daten'}</span>
                 </button>
 
                 <button
@@ -602,7 +602,7 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
                   onClick={() =>
                     onChangeWeatherMode(weatherMode === 'live' ? 'peak-autumn' : 'live')
                   }
-                  title="Switch between live DWD ICON weather and peak October fruiting simulation"
+                  title="Zwischen aktuellem DWD-ICON-Wetter und Oktober-Hauptsaison umschalten"
                   className={`hidden sm:inline-flex h-8 items-center gap-1 rounded-lg border px-2 text-[11px] font-semibold transition-colors whitespace-nowrap shrink-0 ${
                     weatherMode === 'peak-autumn'
                       ? 'border-[#C86D1F] bg-[#FFF7ED] text-[#9A3412]'
@@ -610,13 +610,13 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
                   }`}
                 >
                   <Sparkles className="h-3 w-3 shrink-0" />
-                  <span>{weatherMode === 'live' ? 'Live DWD' : 'Oct Peak'}</span>
+                  <span>{weatherMode === 'live' ? 'Live DWD' : 'Okt-Peak'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setShowControlsSheet((v) => !v)}
-                  aria-label="Toggle map filters and OpenGeodata.NRW controls"
+                  aria-label="Kartenebenen und OpenGeodata.NRW-Optionen öffnen"
                   aria-expanded={showControlsSheet}
                   className={`inline-flex h-7 min-w-[30px] items-center justify-center gap-1 rounded-lg border px-1.5 text-[11px] font-semibold transition-colors sm:h-8 sm:px-2 ${
                     showControlsSheet
@@ -625,7 +625,7 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
                   }`}
                 >
                   <Filter className="h-3.5 w-3.5" />
-                  <span className="hidden md:inline">Layers</span>
+                  <span className="hidden md:inline">Ebenen</span>
                 </button>
               </div>
             </div>
@@ -641,7 +641,7 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
                     : 'text-[#4A5D52] hover:bg-[#F7F6F2] hover:text-[#132A1E]'
                 }`}
               >
-                All Species
+                Alle Arten
               </button>
               {NRW_MUSHROOM_SPECIES.map((sp) => (
                 <button
@@ -668,7 +668,7 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
                 type="button"
                 onClick={() => setDismissedMsg(highResMessage)}
                 className="flex h-4 w-4 items-center justify-center text-[#4A5D52] hover:text-[#132A1E] font-bold shrink-0"
-                aria-label="Dismiss status message"
+                aria-label="Statusmeldung schließen"
               >
                 ×
               </button>
@@ -680,17 +680,17 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
             <div className="pointer-events-auto ml-auto w-full max-w-[340px] rounded-2xl border border-[#D6D3C8] bg-[#FFFFFF]/98 p-3.5 shadow-xl backdrop-blur-md">
               <div className="flex items-center justify-between border-b border-[#EFECE4] pb-2">
                 <span className="text-xs font-bold text-[#132A1E]">
-                  Layers &amp; OpenGeodata.NRW
+                  Ebenen &amp; OpenGeodata.NRW
                 </span>
                 <span className="font-mono text-[11px] tabular-nums text-[#4A5D52]">
-                  {visibleSummary.peakCount} peak · {visibleSummary.highCount} high · {visibleSummary.nsgCount} NSG
+                  {visibleSummary.peakCount} Top · {visibleSummary.highCount} Hoch · {visibleSummary.nsgCount} NSG
                 </span>
               </div>
 
               <div className="mt-2.5 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-medium text-[#132A1E]">
-                    Protected NSG Exclusions
+                    NSG-Schutzgebiete
                   </span>
                   <button
                     type="button"
@@ -702,13 +702,13 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
                     }`}
                   >
                     {layers.showNSG ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                    <span>{layers.showNSG ? 'On' : 'Off'}</span>
+                    <span>{layers.showNSG ? 'An' : 'Aus'}</span>
                   </button>
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-medium text-[#132A1E]">
-                    Auto-load Surveyed (z≥12)
+                    Auto-Laden (ab Zoom 12)
                   </span>
                   <button
                     type="button"
@@ -721,13 +721,13 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
                         : 'border-[#D6D3C8] bg-[#F7F6F2] text-[#4A5D52]'
                     }`}
                   >
-                    {layers.autoLoadHighRes ? 'Auto' : 'Manual'}
+                    {layers.autoLoadHighRes ? 'Auto' : 'Manuell'}
                   </button>
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-medium text-[#132A1E]">
-                    Clean Hi-Res View
+                    Klare Detailansicht
                   </span>
                   <button
                     type="button"
@@ -743,15 +743,15 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
                         : 'border-[#D6D3C8] bg-[#F7F6F2] text-[#4A5D52]'
                     }`}
                   >
-                    {layers.hideCuratedInHighRes ? 'Surveyed Only' : 'Show Both'}
+                    {layers.hideCuratedInHighRes ? 'Nur Vermessung' : 'Beide'}
                   </button>
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-[#132A1E]">Min Probability</span>
+                  <span className="text-xs font-medium text-[#132A1E]">Min. Chance</span>
                   <div className="flex items-center gap-1 rounded-lg bg-[#F7F6F2] p-0.5">
                     {[
-                      { val: 0, label: 'All' },
+                      { val: 0, label: 'Alle' },
                       { val: 45, label: '≥45%' },
                       { val: 64, label: '≥64%' },
                     ].map((opt) => (
@@ -788,15 +788,15 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
                     )}
                     <span>
                       {highResLoading
-                        ? 'Fetching OpenGeodata.NRW…'
+                        ? 'Lade OpenGeodata.NRW…'
                         : isOnline
-                        ? `Load Surveyed NRW Here (${highResCount} cached)`
-                        : 'Live NRW WFS unavailable offline'}
+                        ? `NRW-Daten hier laden (${highResCount} gespeichert)`
+                        : 'Live-NRW-WFS offline nicht verfügbar'}
                     </span>
                   </button>
                   <p className="mt-1.5 text-[11px] leading-snug text-[#4A5D52]">
-                    Wald &amp; Holz NRW Basis-DLM forests, GD NRW FSK05 (1:5,000) soil/water, and
-                    LANUV NRW NSG boundaries.
+                    Wald &amp; Holz NRW Basis-DLM, GD NRW FSK05 (1:5.000) Boden/Wasser sowie
+                    LANUV NRW Schutzgebiete.
                   </p>
                 </div>
               </div>
@@ -814,8 +814,8 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
             type="button"
             disabled={!isOnline || highResLoading}
             onClick={handleLoadHighResClick}
-            aria-label="Load high-resolution NRW forest polygons"
-            title="Load surveyed NRW forests & NSGs"
+            aria-label="Hochauflösende NRW-Waldflächen laden"
+            title="Vermessene NRW-Wälder & NSG laden"
             className="flex h-10 w-10 flex-col items-center justify-center rounded-xl border border-[#1B4332] bg-[#1B4332]/95 text-white shadow-md backdrop-blur-md transition-colors active:scale-95 disabled:opacity-55 sm:hidden"
           >
             {highResLoading ? (
@@ -832,8 +832,8 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
             onClick={() =>
               onChangeWeatherMode(weatherMode === 'live' ? 'peak-autumn' : 'live')
             }
-            aria-label="Toggle October Peak Preview vs Live DWD weather"
-            title="Toggle Live DWD vs Oct Peak Preview"
+            aria-label="Zwischen aktuellem DWD-Wetter und Oktober-Hauptsaison umschalten"
+            title="Live DWD vs. Oktober-Hauptsaison"
             className={`flex h-10 w-10 flex-col items-center justify-center rounded-xl border shadow-md backdrop-blur-md transition-colors active:scale-95 sm:hidden ${
               weatherMode === 'peak-autumn'
                 ? 'border-[#C86D1F] bg-[#FFF7ED]/95 text-[#9A3412]'
@@ -842,7 +842,7 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
           >
             <Sparkles className="h-3.5 w-3.5" />
             <span className="mt-0.5 text-[7.5px] font-bold leading-none tracking-tight">
-              {weatherMode === 'live' ? 'LIVE' : 'OCT'}
+              {weatherMode === 'live' ? 'LIVE' : 'OKT'}
             </span>
           </button>
 
@@ -850,7 +850,7 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
           <button
             type="button"
             onClick={handleLocateMe}
-            aria-label="Track my GPS position"
+            aria-label="Meine GPS-Position verfolgen"
             className={`flex h-10 w-10 items-center justify-center rounded-xl border shadow-md backdrop-blur-md transition-colors active:scale-95 sm:h-10 sm:w-10 ${
               gpsActive
                 ? 'border-[#C86D1F] bg-[#C86D1F] text-white'
@@ -874,15 +874,15 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
           <div className="pointer-events-auto hidden w-fit flex-wrap items-center gap-x-2.5 gap-y-0.5 rounded-lg border border-[#D6D3C8] bg-[#FFFFFF]/92 px-2.5 py-1 text-[10.5px] text-[#132A1E] shadow-xs backdrop-blur-xs sm:flex">
             <span className="inline-flex items-center gap-1">
               <span className="h-2 w-2 rounded-xs bg-[#065F46]" />
-              <span>Peak 80%+</span>
+              <span>Spitze 80%+</span>
             </span>
             <span className="inline-flex items-center gap-1">
               <span className="h-2 w-2 rounded-xs bg-[#15803D]" />
-              <span>High 64–79%</span>
+              <span>Hoch 64–79%</span>
             </span>
             <span className="inline-flex items-center gap-1">
               <span className="h-2 w-2 rounded-xs bg-[#D97706]" />
-              <span>Mod 45–63%</span>
+              <span>Mittel 45–63%</span>
             </span>
             <span className="inline-flex items-center gap-1">
               <span className="h-2 w-2 rounded-xs border border-[#991B1B] bg-[#FEE2E2]" />
@@ -896,7 +896,7 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
           <div className="pointer-events-auto grid grid-cols-7 gap-0.5 rounded-xl border border-[#D6D3C8]/90 bg-[#FFFFFF]/94 p-0.5 shadow-md backdrop-blur-md sm:flex sm:items-center sm:gap-1 sm:overflow-x-auto sm:p-1">
             <div className="hidden items-center gap-1 px-1.5 text-[11px] font-semibold text-[#4A5D52] md:flex shrink-0">
               <Calendar className="h-3.5 w-3.5 text-[#1B4332]" />
-              <span>{weatherMode === 'peak-autumn' ? 'Oct' : '7-Day'}</span>
+              <span>{weatherMode === 'peak-autumn' ? 'Okt' : '7 Tage'}</span>
             </div>
             {forecastDays.map((day, idx) => {
               const { top, bottom } = formatDayChip(day.date, idx);
@@ -920,7 +920,7 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
                       active ? 'text-white/80' : 'text-[#4A5D52]'
                     }`}
                   >
-                    {weatherMode === 'peak-autumn' ? `+${idx}d` : bottom.slice(0, 6)}
+                    {weatherMode === 'peak-autumn' ? `+${idx}T` : bottom}
                   </span>
                 </button>
               );
@@ -943,20 +943,20 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
         ) : (
           <div className="flex h-full flex-col justify-between overflow-y-auto p-3.5">
             <div>
-              <p className="text-[11px] font-semibold text-[#4A5D52]">NRW Corridor Inspector</p>
+              <p className="text-[11px] font-semibold text-[#4A5D52]">NRW-Standortinspektor</p>
               <h2 className="mt-0.5 text-base font-bold leading-snug text-[#132A1E]">
-                Tap any forest polygon to inspect its mycology
+                Waldfläche auf der Karte antippen
               </h2>
               <p className="mt-1.5 text-xs leading-snug text-[#4A5D52]">
-                Combines obligate host trees, NRW soil acidity, elevation, and live DWD ICON-D2
-                21-day rainfall lag + root-zone soil moisture.
+                Verbindet Mykorrhiza-Wirtsbäume, NRW-Boden-pH, Höhenlage sowie DWD-ICON-D2
+                21-Tage-Vorregen und Wurzelzonen-Bodenfeuchte.
               </p>
 
               {/* Top Ranked Stands Quick List */}
               <div className="mt-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-[11px] font-semibold text-[#4A5D52]">
-                    Highest-Scoring Open Stands
+                    Top offene Waldflächen
                   </h3>
                   <button
                     type="button"
@@ -966,7 +966,7 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
                     className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#1B4332] hover:underline"
                   >
                     <RefreshCw className="h-3 w-3" />
-                    <span>{weatherMode === 'live' ? 'Try Oct Peak' : 'Back to Live'}</span>
+                    <span>{weatherMode === 'live' ? 'Okt-Peak testen' : 'Zurück zu Live'}</span>
                   </button>
                 </div>
                 <div className="mt-1.5 divide-y divide-[#EFECE4] border-y border-[#EFECE4]">
@@ -1005,11 +1005,11 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
             </div>
 
             <div className="mt-3 rounded-xl border border-[#D6D3C8] bg-[#F7F6F2] p-2.5 text-[11px] leading-snug text-[#4A5D52]">
-              <p className="font-semibold text-[#132A1E]">Live Weather vs. Season</p>
+              <p className="font-semibold text-[#132A1E]">Live-Wetter vs. Hauptsaison</p>
               <p className="mt-0.5">
-                During frost or dry spells, live probabilities drop near 0%. Switch to{' '}
-                <strong className="text-[#132A1E]">Oct Peak</strong> anytime to compare autumn NRW
-                forest suitability.
+                Bei Frost oder Trockenheit sinken die Live-Werte gegen 0 %. Wechsle jederzeit zu{' '}
+                <strong className="text-[#132A1E]">Okt-Peak</strong>, um die Herbst-Standorteignung
+                in NRW zu vergleichen.
               </p>
             </div>
           </div>
@@ -1029,7 +1029,7 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
               sheetExpanded ? 'h-[82dvh]' : 'h-[48dvh]'
             }`}
             role="dialog"
-            aria-label={`Details for ${selectedStand.name}`}
+            aria-label={`Details für ${selectedStand.name}`}
           >
             <StandInspectorPanel
               stand={selectedStand}

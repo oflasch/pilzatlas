@@ -97,18 +97,18 @@ export const FieldGuideView: React.FC<FieldGuideViewProps> = ({
         <div className="border-b border-[#D6D3C8] pb-2.5 sm:pb-3.5">
           <div className="flex items-baseline justify-between gap-2">
             <h1 className="text-lg font-bold tracking-tight text-[#132A1E] sm:text-2xl">
-              NRW Field Guide &amp; Lookalikes
+              NRW-Pilzführer &amp; Doppelgänger
             </h1>
             <span className="text-[10.5px] font-medium text-[#4A5D52] whitespace-nowrap">
-              Offline · {NRW_MUSHROOM_SPECIES.length} spp.
+              Offline · {NRW_MUSHROOM_SPECIES.length} Arten
             </span>
           </div>
           <div className="mt-2 flex items-start gap-1.5 rounded-lg border border-[#C86D1F]/35 bg-[#FFFBEB] px-2.5 py-1.5 text-[10.5px] leading-snug text-[#78350F] sm:text-xs">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#C86D1F]" />
             <span>
-              <strong className="text-[#132A1E]">Safety:</strong> Never eat wild mushrooms solely
-              from app scores. Confirm finds with a certified{' '}
-              <strong className="text-[#132A1E]">DGfM Pilzsachverständiger</strong>.
+              <strong className="text-[#132A1E]">Sicherheitshinweis:</strong> Niemals Wildpilze
+              allein anhand von App-Werten verzehren. Funde im Zweifel immer durch einen{' '}
+              <strong className="text-[#132A1E]">DGfM-Pilzsachverständigen</strong> prüfen lassen.
             </span>
           </div>
         </div>
@@ -121,18 +121,18 @@ export const FieldGuideView: React.FC<FieldGuideViewProps> = ({
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search Steinpilz, Pfifferling, Beech…"
-              aria-label="Search mushroom species"
+              placeholder="Suche nach Steinpilz, Pfifferling, Buche…"
+              aria-label="Pilzarten durchsuchen"
               className="h-9 w-full rounded-lg border border-[#D6D3C8] bg-white pl-8 pr-3 text-[16px] text-[#132A1E] placeholder:text-[#4A5D52]/70 focus:border-[#1B4332] focus:outline-none sm:h-10 sm:text-sm"
             />
           </div>
 
           <div className="flex items-center gap-0.5 overflow-x-auto no-scrollbar rounded-lg border border-[#D6D3C8] bg-white p-0.5">
             {[
-              { id: 'all', label: 'All (8)' },
-              { id: 'conifer', label: 'Spruce & Pine' },
-              { id: 'deciduous', label: 'Beech & Oak' },
-              { id: 'edges', label: 'Birch & Edges' },
+              { id: 'all', label: 'Alle (8)' },
+              { id: 'conifer', label: 'Fichte & Kiefer' },
+              { id: 'deciduous', label: 'Buche & Eiche' },
+              { id: 'edges', label: 'Birke & Ränder' },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -154,7 +154,7 @@ export const FieldGuideView: React.FC<FieldGuideViewProps> = ({
         {filteredSpecies.length === 0 ? (
           <div className="mt-4 rounded-xl border border-[#D6D3C8] bg-white p-5 text-center">
             <p className="text-xs font-semibold text-[#132A1E]">
-              No species match “{searchQuery}”.
+              Keine Pilzart passt zu „{searchQuery}“.
             </p>
             <button
               type="button"
@@ -164,7 +164,7 @@ export const FieldGuideView: React.FC<FieldGuideViewProps> = ({
               }}
               className="mt-2.5 h-9 rounded-lg bg-[#1B4332] px-3.5 text-xs font-semibold text-white"
             >
-              Reset Filters
+              Filter zurücksetzen
             </button>
           </div>
         ) : (
@@ -185,7 +185,7 @@ export const FieldGuideView: React.FC<FieldGuideViewProps> = ({
                     {!failedImages[sp.id] ? (
                       <img
                         src={sp.imagePath}
-                        alt={`${sp.germanName} (${sp.latinName}) in a German forest`}
+                        alt={`${sp.germanName} (${sp.latinName}) im Wald`}
                         referrerPolicy="no-referrer"
                         loading="lazy"
                         onError={() =>
@@ -203,8 +203,8 @@ export const FieldGuideView: React.FC<FieldGuideViewProps> = ({
                     )}
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-1.5 pt-4 pb-1 text-white sm:px-3 sm:pt-6 sm:pb-2">
                       <p className="font-mono text-[10px] font-semibold tabular-nums text-white/95 sm:text-xs">
-                        <span className="sm:hidden">{peakProb}% max</span>
-                        <span className="hidden sm:inline">Peak NRW stand: {peakProb}%</span>
+                        <span className="sm:hidden">max. {peakProb}%</span>
+                        <span className="hidden sm:inline">Top-NRW-Standort: {peakProb}%</span>
                       </p>
                     </div>
                   </button>
@@ -216,7 +216,7 @@ export const FieldGuideView: React.FC<FieldGuideViewProps> = ({
                         {sp.germanName}
                       </h2>
                       <p className="truncate text-[11px] italic text-[#4A5D52]">
-                        {sp.latinName} · {sp.englishName}
+                        {sp.latinName}
                       </p>
 
                       <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[10.5px] text-[#4A5D52] sm:text-[11px]">
@@ -230,7 +230,7 @@ export const FieldGuideView: React.FC<FieldGuideViewProps> = ({
                       </p>
 
                       <p className="mt-1 truncate text-[10.5px] text-[#991B1B] sm:mt-2 sm:border-t sm:border-[#EFECE4] sm:pt-1.5 sm:text-[11px]">
-                        <span className="font-semibold">Lookalike:</span> {sp.lookalike.germanName}
+                        <span className="font-semibold">Verwechslung:</span> {sp.lookalike.germanName}
                       </p>
                     </div>
 
@@ -238,17 +238,18 @@ export const FieldGuideView: React.FC<FieldGuideViewProps> = ({
                       <button
                         type="button"
                         onClick={() => setSelectedSpecies(sp)}
-                        className="h-8 flex-1 rounded-lg border border-[#D6D3C8] bg-[#F7F6F2] px-2 text-[11px] font-semibold text-[#132A1E] hover:bg-[#EFECE4] transition-colors sm:h-9 sm:text-xs"
+                        className="h-8 flex-1 rounded-lg border border-[#D6D3C8] bg-[#F7F6F2] px-2 text-[11px] font-semibold text-[#132A1E] hover:bg-[#EFECE4] transition-colors sm:h-9 sm:text-xs whitespace-nowrap"
                       >
-                        ID &amp; Lookalikes
+                        <span className="sm:hidden">Merkmale</span>
+                        <span className="hidden sm:inline">Merkmale &amp; Doppelgänger</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => onFilterMapBySpecies(sp.id)}
-                        className="inline-flex h-8 items-center justify-center gap-1 rounded-lg bg-[#1B4332] px-2.5 text-[11px] font-semibold text-white hover:bg-[#132A1E] transition-colors sm:h-9 sm:px-3 sm:text-xs"
+                        className="inline-flex h-8 items-center justify-center gap-1 rounded-lg bg-[#1B4332] px-2.5 text-[11px] font-semibold text-white hover:bg-[#132A1E] transition-colors sm:h-9 sm:px-3 sm:text-xs shrink-0"
                       >
                         <MapPin className="h-3 w-3" />
-                        <span>Map</span>
+                        <span>Karte</span>
                       </button>
                     </div>
                   </div>
@@ -284,13 +285,13 @@ export const FieldGuideView: React.FC<FieldGuideViewProps> = ({
                   {selectedSpecies.germanName}
                 </h2>
                 <p className="text-[11px] italic text-[#4A5D52]">
-                  {selectedSpecies.latinName} ({selectedSpecies.englishName})
+                  {selectedSpecies.latinName}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={handleCloseDossier}
-                aria-label="Close species guide"
+                aria-label="Artenporträt schließen"
                 className="flex h-9 w-9 -mr-1 items-center justify-center rounded-lg text-[#4A5D52] hover:bg-[#F7F6F2] hover:text-[#132A1E]"
               >
                 <X className="h-5 w-5" />
@@ -303,7 +304,7 @@ export const FieldGuideView: React.FC<FieldGuideViewProps> = ({
                 {!failedImages[selectedSpecies.id] ? (
                   <img
                     src={selectedSpecies.imagePath}
-                    alt={`${selectedSpecies.germanName} botanical photograph`}
+                    alt={`${selectedSpecies.germanName} – Bestimmungsfoto`}
                     referrerPolicy="no-referrer"
                     className="aspect-[16/10] w-full max-h-52 object-cover sm:max-h-64"
                   />
@@ -321,7 +322,7 @@ export const FieldGuideView: React.FC<FieldGuideViewProps> = ({
               {/* Key Identification Checkpoints */}
               <div>
                 <h3 className="text-[11px] font-bold tracking-wide text-[#4A5D52]">
-                  Key Field Identification Checkpoints
+                  Wichtige Bestimmungsmerkmale
                 </h3>
                 <ul className="mt-1.5 space-y-1.5">
                   {selectedSpecies.idCheckpoints.map((pt) => (
@@ -339,12 +340,12 @@ export const FieldGuideView: React.FC<FieldGuideViewProps> = ({
                   <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-[#991B1B]" />
                   <div>
                     <p className="text-[11px] font-bold text-[#991B1B]">
-                      Lookalike Warning ·{' '}
+                      Verwechslungsgefahr ·{' '}
                       {selectedSpecies.lookalike.toxicity === 'deadly'
-                        ? 'Potentially Deadly'
+                        ? 'Lebensgefährlich giftig'
                         : selectedSpecies.lookalike.toxicity === 'toxic'
-                        ? 'Toxic'
-                        : 'Inedible / Bitter'}
+                        ? 'Giftig'
+                        : 'Ungenießbar / Bitter'}
                     </p>
                     <p className="mt-0.5 text-xs font-bold text-[#7F1D1D] sm:text-sm">
                       {selectedSpecies.lookalike.germanName}{' '}
@@ -365,7 +366,7 @@ export const FieldGuideView: React.FC<FieldGuideViewProps> = ({
               <div className="grid grid-cols-1 gap-3 border-t border-[#EFECE4] pt-3 sm:grid-cols-2">
                 <div>
                   <h3 className="text-[11px] font-bold tracking-wide text-[#4A5D52]">
-                    NRW Forest Habitat &amp; Soil
+                    NRW-Lebensraum &amp; Boden
                   </h3>
                   <p className="mt-1 text-[11px] leading-snug text-[#4A5D52]">
                     {selectedSpecies.habitatNotes}
@@ -379,7 +380,7 @@ export const FieldGuideView: React.FC<FieldGuideViewProps> = ({
 
                 <div>
                   <h3 className="text-[11px] font-bold tracking-wide text-[#4A5D52]">
-                    German Fruiting Calendar
+                    Saisonkalender Deutschland
                   </h3>
                   <div className="mt-2 flex h-16 items-end gap-1">
                     {selectedSpecies.monthlySeasonality.map((val, idx) => (
@@ -411,7 +412,7 @@ export const FieldGuideView: React.FC<FieldGuideViewProps> = ({
                   onClick={handleCloseDossier}
                   className="h-10 rounded-xl border border-[#D6D3C8] bg-white px-3.5 text-xs font-semibold text-[#132A1E] hover:bg-[#EFECE4]"
                 >
-                  Close
+                  Schließen
                 </button>
                 <button
                   type="button"
@@ -423,7 +424,7 @@ export const FieldGuideView: React.FC<FieldGuideViewProps> = ({
                   className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#1B4332] px-4 text-xs font-semibold text-white hover:bg-[#132A1E] sm:flex-none"
                 >
                   <MapPin className="h-3.5 w-3.5" />
-                  <span>View on Map</span>
+                  <span>Auf Karte zeigen</span>
                 </button>
               </div>
             </div>

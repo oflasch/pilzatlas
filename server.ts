@@ -34,7 +34,7 @@ async function startServer() {
       east <= west
     ) {
       res.status(400).json({
-        error: 'Invalid bounding box parameters. Expected finite south, west, north, east.',
+        error: 'Ungültige Kartenkoordinaten. Erwartet werden gültige Werte für Süd, West, Nord und Ost.',
       });
       return;
     }
@@ -46,7 +46,7 @@ async function startServer() {
     } catch (err) {
       console.error('[nrw-geodata-proxy] error:', err);
       res.status(502).json({
-        error: err instanceof Error ? err.message : 'Unable to fetch OpenGeodata.NRW WFS layers.',
+        error: err instanceof Error ? err.message : 'OpenGeodata.NRW-WFS-Ebenen konnten nicht abgerufen werden.',
       });
     }
   });

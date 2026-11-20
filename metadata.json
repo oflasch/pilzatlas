@@ -1,6 +1,6 @@
 {
   "name": "PilzAtlas NRW",
-  "description": "Mobile-first offline mushroom foraging prediction map and field guide covering all of North Rhine-Westphalia (NRW) using OpenStreetMap and DWD ICON weather data.",
+  "description": "Mobile Offline-Pilzkarte mit ökologischer Standortprognose und Pilzführer für ganz Nordrhein-Westfalen (NRW) auf Basis von OpenGeodata.NRW und DWD-ICON-Wetterdaten.",
   "requestFramePermissions": ["geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

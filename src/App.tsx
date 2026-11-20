@@ -125,7 +125,7 @@ export default function App() {
       try {
         const res = await fetchHighResNRWStandsInBounds(bounds);
         if (res.stands.length === 0) {
-          setHighResMessage('No surveyed NRW forest or NSG polygons found in this viewport.');
+          setHighResMessage('Keine vermessenen NRW-Wald- oder NSG-Flächen im Kartenausschnitt gefunden.');
         } else {
           setHighResStands((prev) => {
             const byId = new Map(prev.map((s) => [s.id, s]));
@@ -136,18 +136,18 @@ export default function App() {
           });
           await saveOsmStands(res.stands);
           const parts: string[] = [];
-          if (res.counts.waldNrwForests > 0) parts.push(`${res.counts.waldNrwForests} Wald NRW stands`);
-          if (res.counts.fskSoilPolygons > 0) parts.push(`${res.counts.fskSoilPolygons} FSK05 soil`);
-          if (res.counts.lanuvProtected > 0) parts.push(`${res.counts.lanuvProtected} LANUV NSG`);
+          if (res.counts.waldNrwForests > 0) parts.push(`${res.counts.waldNrwForests} Wald-NRW`);
+          if (res.counts.fskSoilPolygons > 0) parts.push(`${res.counts.fskSoilPolygons} FSK05-Boden`);
+          if (res.counts.lanuvProtected > 0) parts.push(`${res.counts.lanuvProtected} LANUV-NSG`);
           const enrichedNote =
-            res.counts.enrichedWithFsk > 0 ? ` (${res.counts.enrichedWithFsk} FSK05 soil-enriched)` : '';
+            res.counts.enrichedWithFsk > 0 ? ` (${res.counts.enrichedWithFsk} mit FSK05-Boden)` : '';
           setHighResMessage(
-            `Loaded ${parts.join(' · ')}${enrichedNote} in ${(res.elapsedMs / 1000).toFixed(1)}s — saved offline.`
+            `Geladen: ${parts.join(' · ')}${enrichedNote} in ${(res.elapsedMs / 1000).toFixed(1)} s — offline gespeichert.`
           );
         }
       } catch (err) {
         setHighResMessage(
-          err instanceof Error ? err.message : 'Unable to reach OpenGeodata.NRW proxy.'
+          err instanceof Error ? err.message : 'OpenGeodata.NRW-Proxy ist derzeit nicht erreichbar.'
         );
       } finally {
         setHighResLoading(false);
@@ -176,7 +176,7 @@ export default function App() {
   const handleClearHighResStands = useCallback(async () => {
     await clearOsmStands();
     setHighResStands([]);
-    setHighResMessage('Cleared cached high-resolution NRW polygons.');
+    setHighResMessage('Gespeicherte hochauflösende NRW-Flächen wurden geleert.');
   }, []);
 
   const handleOpenSpeciesGuide = useCallback((speciesId: string) => {
@@ -195,9 +195,9 @@ export default function App() {
   }, []);
 
   const navItems: { id: ActiveTab; label: string; icon: typeof MapIcon }[] = [
-    { id: 'map', label: 'Map', icon: MapIcon },
-    { id: 'forecast', label: 'Forecast', icon: CloudSun },
-    { id: 'guide', label: 'Field Guide', icon: BookOpen },
+    { id: 'map', label: 'Karte', icon: MapIcon },
+    { id: 'forecast', label: 'Prognose', icon: CloudSun },
+    { id: 'guide', label: 'Pilzführer', icon: BookOpen },
     { id: 'offline', label: 'Offline', icon: HardDriveDownload },
   ];
 
@@ -218,7 +218,7 @@ export default function App() {
 
           {/* Zone 2: Clean Single-Line Navigation Links (Desktop) */}
           <nav
-            aria-label="Primary navigation"
+            aria-label="Hauptnavigation"
             className="hidden items-center gap-6 lg:flex"
           >
             {navItems.map((item) => {
@@ -321,7 +321,7 @@ export default function App() {
 
       {/* Mobile Ergonomic iOS-Safe Thumb-Zone Bottom Tab Bar */}
       <nav
-        aria-label="Mobile navigation"
+        aria-label="Mobile Navigation"
         className="pb-safe z-[500] shrink-0 border-t border-[#D6D3C8] bg-[#FFFFFF]/95 backdrop-blur-md lg:hidden"
       >
         <div className="grid h-[48px] grid-cols-4">

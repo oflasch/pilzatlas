@@ -15,7 +15,12 @@ import {
 } from 'lucide-react';
 import { NRW_SUBREGIONS } from '../data/nrwForestStands';
 import { getTierMeta } from '../services/ecologyEngine';
-import type { NRWForestStand, StandPrediction, TreeHostKey } from '../types/foraging';
+import type {
+  AspectDirection,
+  NRWForestStand,
+  StandPrediction,
+  TreeHostKey,
+} from '../types/foraging';
 
 interface StandInspectorPanelProps {
   stand: NRWForestStand;
@@ -29,20 +34,32 @@ interface StandInspectorPanelProps {
 }
 
 const HOST_LABELS: Record<TreeHostKey, string> = {
-  spruce: 'Spruce (Fichte)',
-  pine: 'Scots Pine (Kiefer)',
-  beech: 'Beech (Buche)',
-  oak: 'Oak (Eiche)',
-  birch: 'Birch (Birke)',
-  clearing: 'Clearing / Edge',
+  spruce: 'Fichte',
+  pine: 'Waldkiefer',
+  beech: 'Rotbuche',
+  oak: 'Eiche',
+  birch: 'Birke',
+  clearing: 'Lichtung / Waldrand',
 };
 
 const TEXTURE_LABELS: Record<NRWForestStand['soilTexture'], string> = {
-  'acidic-slate-loam': 'Acidic slate loam',
-  'sandy-podsol': 'Sandy podsol',
-  braunerde: 'Loess Braunerde',
-  'calcareous-loam': 'Calcareous limestone loam',
-  'moist-gley': 'Moist gley soil',
+  'acidic-slate-loam': 'Saurer Schieferlehm',
+  'sandy-podsol': 'Sandiger Podsol',
+  braunerde: 'Löss-Braunerde',
+  'calcareous-loam': 'Kalkreicher Lehm',
+  'moist-gley': 'Feuchter Gley',
+};
+
+const ASPECT_LABELS: Record<AspectDirection, string> = {
+  N: 'N',
+  NE: 'NO',
+  NW: 'NW',
+  E: 'O',
+  W: 'W',
+  SE: 'SO',
+  SW: 'SW',
+  S: 'S',
+  Flat: 'Eben',
 };
 
 export const StandInspectorPanel: React.FC<StandInspectorPanelProps> = ({
@@ -62,11 +79,14 @@ export const StandInspectorPanel: React.FC<StandInspectorPanelProps> = ({
     .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0));
 
   const factorRows = [
-    { label: 'Mycorrhizal Host Match', value: prediction.factors.hostScore },
-    { label: 'Soil pH & Substrate Fit', value: prediction.factors.soilPhScore },
-    { label: '14-Day Rain Lag Memory', value: prediction.factors.rainLagScore },
-    { label: 'Root-Zone Soil Moisture', value: prediction.factors.soilMoistureScore },
-    { label: '6 cm Soil Temp & Season', value: Math.round((prediction.factors.soilTempScore + prediction.factors.seasonScore) / 2) },
+    { label: 'Mykorrhiza-Wirtsbäume', value: prediction.factors.hostScore },
+    { label: 'Boden-pH & Substrat', value: prediction.factors.soilPhScore },
+    { label: '14-Tage-Regengedächtnis', value: prediction.factors.rainLagScore },
+    { label: 'Bodenfeuchte (Wurzelzone)', value: prediction.factors.soilMoistureScore },
+    {
+      label: 'Bodentemp. (6 cm) & Saison',
+      value: Math.round((prediction.factors.soilTempScore + prediction.factors.seasonScore) / 2),
+    },
   ];
 
   return (
@@ -76,7 +96,7 @@ export const StandInspectorPanel: React.FC<StandInspectorPanelProps> = ({
         <button
           type="button"
           onClick={onToggleExpand}
-          aria-label={isExpanded ? 'Collapse stand sheet' : 'Expand stand sheet'}
+          aria-label={isExpanded ? 'Standortdetails verkleinern' : 'Standortdetails vergrößern'}
           className="flex w-full items-center justify-center pt-1.5 pb-0.5 lg:hidden"
         >
           <span className="h-1 w-8 rounded-full bg-[#D6D3C8]" aria-hidden="true" />
@@ -102,7 +122,7 @@ export const StandInspectorPanel: React.FC<StandInspectorPanelProps> = ({
             <button
               type="button"
               onClick={onToggleExpand}
-              aria-label={isExpanded ? 'Shrink details' : 'Expand details'}
+              aria-label={isExpanded ? 'Details einklappen' : 'Details ausklappen'}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-[#4A5D52] hover:bg-[#F7F6F2] lg:hidden"
             >
               {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -111,7 +131,7 @@ export const StandInspectorPanel: React.FC<StandInspectorPanelProps> = ({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close forest stand details"
+            aria-label="Standortdetails schließen"
             className="flex h-8 w-8 -mr-1 items-center justify-center rounded-lg text-[#4A5D52] hover:bg-[#F7F6F2] hover:text-[#132A1E] transition-colors"
           >
             <X className="h-4 w-4" />
@@ -128,11 +148,11 @@ export const StandInspectorPanel: React.FC<StandInspectorPanelProps> = ({
               <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-[#991B1B]" />
               <div>
                 <p className="text-xs font-bold text-[#991B1B]">
-                  Protected Reserve (NSG) — Foraging Prohibited
+                  Naturschutzgebiet (NSG) — Sammelverbot
                 </p>
                 <p className="mt-0.5 text-[11px] leading-snug text-[#7F1D1D]">
-                  {stand.nsgName ?? stand.name}. Leaving marked paths and collecting mushrooms are
-                  strictly illegal under NRW law (BNatSchG / LFoG).
+                  {stand.nsgName ?? stand.name}. Das Verlassen der Wege und das Sammeln von Pilzen
+                  sind nach NRW-Naturschutzrecht (BNatSchG / LFoG) streng verboten.
                 </p>
               </div>
             </div>
@@ -159,16 +179,16 @@ export const StandInspectorPanel: React.FC<StandInspectorPanelProps> = ({
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 border-t border-[#D6D3C8] pt-1.5 text-[10.5px] text-[#4A5D52]">
               <span>
-                Habitat <strong className="font-mono tabular-nums text-[#132A1E]">{prediction.habitatSuitability}%</strong>
+                Standort <strong className="font-mono tabular-nums text-[#132A1E]">{prediction.habitatSuitability}%</strong>
               </span>
               <span aria-hidden="true">·</span>
               <span>
-                Weather <strong className="font-mono tabular-nums text-[#132A1E]">{prediction.fruitingTrigger}%</strong>
+                Wetter <strong className="font-mono tabular-nums text-[#132A1E]">{prediction.fruitingTrigger}%</strong>
               </span>
               {prediction.factors.thermalShockBonus && (
                 <>
                   <span aria-hidden="true">·</span>
-                  <span className="font-semibold text-[#C86D1F]">Cooling trigger</span>
+                  <span className="font-semibold text-[#C86D1F]">Kältereiz aktiv</span>
                 </>
               )}
             </div>
@@ -180,7 +200,7 @@ export const StandInspectorPanel: React.FC<StandInspectorPanelProps> = ({
           <div className="rounded-lg border border-[#D6D3C8] bg-white px-2 py-1.5 text-center">
             <div className="flex items-center justify-center gap-0.5 text-[9.5px] text-[#4A5D52]">
               <CloudRain className="h-3 w-3 text-[#1B4332]" />
-              <span>Rain</span>
+              <span>Regen</span>
             </div>
             <p className="mt-0.5 font-mono text-xs font-semibold tabular-nums text-[#132A1E]">
               {prediction.factors.weightedRainLagMm}mm
@@ -189,7 +209,7 @@ export const StandInspectorPanel: React.FC<StandInspectorPanelProps> = ({
           <div className="rounded-lg border border-[#D6D3C8] bg-white px-2 py-1.5 text-center">
             <div className="flex items-center justify-center gap-0.5 text-[9.5px] text-[#4A5D52]">
               <Droplets className="h-3 w-3 text-[#1B4332]" />
-              <span>Moist</span>
+              <span>Feuchte</span>
             </div>
             <p className="mt-0.5 font-mono text-xs font-semibold tabular-nums text-[#132A1E]">
               {(prediction.factors.soilMoisture3to9 * 100).toFixed(0)}%
@@ -198,7 +218,7 @@ export const StandInspectorPanel: React.FC<StandInspectorPanelProps> = ({
           <div className="rounded-lg border border-[#D6D3C8] bg-white px-2 py-1.5 text-center">
             <div className="flex items-center justify-center gap-0.5 text-[9.5px] text-[#4A5D52]">
               <Thermometer className="h-3 w-3 text-[#C86D1F]" />
-              <span>Soil</span>
+              <span>Boden</span>
             </div>
             <p className="mt-0.5 font-mono text-xs font-semibold tabular-nums text-[#132A1E]">
               {prediction.factors.soilTemp6cmC.toFixed(1)}°
@@ -207,7 +227,7 @@ export const StandInspectorPanel: React.FC<StandInspectorPanelProps> = ({
           <div className="rounded-lg border border-[#D6D3C8] bg-white px-2 py-1.5 text-center">
             <div className="flex items-center justify-center gap-0.5 text-[9.5px] text-[#4A5D52]">
               <Compass className="h-3 w-3 text-[#1B4332]" />
-              <span>pH/{stand.aspect}</span>
+              <span>pH/{ASPECT_LABELS[stand.aspect]}</span>
             </div>
             <p className="mt-0.5 font-mono text-xs font-semibold tabular-nums text-[#132A1E]">
               {stand.soilPh.toFixed(1)}
@@ -219,7 +239,7 @@ export const StandInspectorPanel: React.FC<StandInspectorPanelProps> = ({
         {!stand.isProtectedNSG && (
           <div>
             <h3 className="text-[10.5px] font-semibold tracking-wide text-[#4A5D52]">
-              Biological Suitability Breakdown
+              Ökologische Bewertung
             </h3>
             <div className="mt-1.5 space-y-1.5">
               {factorRows.map((row) => (
@@ -249,7 +269,7 @@ export const StandInspectorPanel: React.FC<StandInspectorPanelProps> = ({
         {/* Forest Composition & Geology */}
         <div className="border-t border-[#D6D3C8] pt-2.5">
           <h3 className="text-[10.5px] font-semibold tracking-wide text-[#4A5D52]">
-            Stand Composition &amp; Geology
+            Bestand &amp; Geologie
           </h3>
           <div className="mt-1.5 space-y-1 text-[11px] text-[#4A5D52]">
             <p className="flex items-start gap-1.5">
@@ -263,7 +283,7 @@ export const StandInspectorPanel: React.FC<StandInspectorPanelProps> = ({
             <p className="flex items-start gap-1.5">
               <Mountain className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#1B4332]" />
               <span>
-                {stand.geology} · {TEXTURE_LABELS[stand.soilTexture]} · Slope {stand.slopeDeg}°
+                {stand.geology} · {TEXTURE_LABELS[stand.soilTexture]} · Hangneigung {stand.slopeDeg}°
               </span>
             </p>
           </div>
@@ -274,26 +294,26 @@ export const StandInspectorPanel: React.FC<StandInspectorPanelProps> = ({
               <p className="font-semibold text-[#132A1E]">{stand.officialMeta.dataset}</p>
               <div className="mt-1 grid grid-cols-2 gap-x-2.5 gap-y-0.5 font-mono">
                 {stand.officialMeta.parcelCode && (
-                  <span>Site: {stand.officialMeta.parcelCode}</span>
+                  <span>Standort: {stand.officialMeta.parcelCode}</span>
                 )}
                 {stand.officialMeta.localId && (
                   <span>ID: {stand.officialMeta.localId}</span>
                 )}
                 {stand.officialMeta.basenText && (
                   <span className="col-span-2 font-sans">
-                    Base status: <strong className="text-[#132A1E]">{stand.officialMeta.basenText}</strong>
+                    Basenstatus: <strong className="text-[#132A1E]">{stand.officialMeta.basenText}</strong>
                   </span>
                 )}
                 {stand.officialMeta.waterBalance && (
                   <span className="font-sans">
-                    Water: <strong className="text-[#132A1E]">{stand.officialMeta.waterBalance}</strong>
+                    Wasser: <strong className="text-[#132A1E]">{stand.officialMeta.waterBalance}</strong>
                   </span>
                 )}
                 {stand.officialMeta.nfk && (
-                  <span>NFK: {stand.officialMeta.nfk}</span>
+                  <span>nFK: {stand.officialMeta.nfk}</span>
                 )}
                 {stand.officialMeta.vegDays && (
-                  <span>Veg: {stand.officialMeta.vegDays}</span>
+                  <span>Veg.-Tage: {stand.officialMeta.vegDays}</span>
                 )}
                 {stand.officialMeta.kwbv && (
                   <span>KWBV: {stand.officialMeta.kwbv}</span>
@@ -312,7 +332,7 @@ export const StandInspectorPanel: React.FC<StandInspectorPanelProps> = ({
         {!stand.isProtectedNSG && (
           <div className="border-t border-[#D6D3C8] pt-2.5">
             <h3 className="text-[10.5px] font-semibold tracking-wide text-[#4A5D52]">
-              Top Species Predicted Here
+              Top-Arten an diesem Standort
             </h3>
             <div className="mt-1 divide-y divide-[#EFECE4]">
               {prediction.speciesRanking.slice(0, 4).map((sp) => (
@@ -331,7 +351,7 @@ export const StandInspectorPanel: React.FC<StandInspectorPanelProps> = ({
                     <button
                       type="button"
                       onClick={() => onOpenSpeciesGuide(sp.speciesId)}
-                      aria-label={`Open field guide for ${sp.germanName}`}
+                      aria-label={`Pilzführer für ${sp.germanName} öffnen`}
                       className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#D6D3C8] text-[#1B4332] hover:bg-[#F7F6F2]"
                     >
                       <BookOpen className="h-3.5 w-3.5" />
@@ -348,8 +368,8 @@ export const StandInspectorPanel: React.FC<StandInspectorPanelProps> = ({
           <div className="flex items-start gap-1.5 rounded-lg bg-[#F7F6F2] p-2 text-[10.5px] leading-snug text-[#4A5D52]">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#C86D1F]" />
             <span>
-              NRW BArtSchV personal-use limit (~1–2 kg/day). Watch for local forestry closures or
-              fenced young plantations (Schonungen).
+              NRW-Eigenbedarfsregel nach BArtSchV (~1–2 kg/Tag). Örtliche Forstsperrungen und
+              eingezäunte Schonungen stets beachten.
             </span>
           </div>
         )}
@@ -364,7 +384,7 @@ export const StandInspectorPanel: React.FC<StandInspectorPanelProps> = ({
             className="flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-xl bg-[#1B4332] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#132A1E] transition-colors"
           >
             <BookOpen className="h-3.5 w-3.5" />
-            <span>Open {prediction.bestSpeciesName} Field Guide</span>
+            <span>Pilzführer: {prediction.bestSpeciesName}</span>
           </button>
         </div>
       )}

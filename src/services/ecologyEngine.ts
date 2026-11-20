@@ -220,7 +220,7 @@ export function getTierMeta(tier: ProbabilityTier): {
   switch (tier) {
     case 'nsg':
       return {
-        label: 'NSG · Picking Prohibited',
+        label: 'NSG · Sammelverbot',
         fillColor: '#B91C1C',
         strokeColor: '#991B1B',
         fillOpacity: 0.22,
@@ -228,7 +228,7 @@ export function getTierMeta(tier: ProbabilityTier): {
       };
     case 'peak':
       return {
-        label: 'Peak Flush (80%+)',
+        label: 'Spitzenschub (80%+)',
         fillColor: '#065F46',
         strokeColor: '#043F2E',
         fillOpacity: 0.52,
@@ -236,7 +236,7 @@ export function getTierMeta(tier: ProbabilityTier): {
       };
     case 'high':
       return {
-        label: 'High Probability (64–79%)',
+        label: 'Hohe Chance (64–79%)',
         fillColor: '#15803D',
         strokeColor: '#14532D',
         fillOpacity: 0.40,
@@ -244,7 +244,7 @@ export function getTierMeta(tier: ProbabilityTier): {
       };
     case 'moderate':
       return {
-        label: 'Moderate (45–63%)',
+        label: 'Mittel (45–63%)',
         fillColor: '#D97706',
         strokeColor: '#92400E',
         fillOpacity: 0.34,
@@ -252,7 +252,7 @@ export function getTierMeta(tier: ProbabilityTier): {
       };
     case 'low':
       return {
-        label: 'Low (22–44%)',
+        label: 'Gering (22–44%)',
         fillColor: '#C49A52',
         strokeColor: '#8A692C',
         fillOpacity: 0.24,
@@ -260,7 +260,7 @@ export function getTierMeta(tier: ProbabilityTier): {
       };
     default:
       return {
-        label: 'Dormant / Out of Season',
+        label: 'Ruhephase / Nebensaison',
         fillColor: '#7A867E',
         strokeColor: '#525E56',
         fillOpacity: 0.16,
@@ -277,65 +277,70 @@ function buildDiagnosticText(
 ): { summaryReason: string; limitingFactor: string } {
   if (stand.isProtectedNSG) {
     return {
-      summaryReason: `${stand.nsgName ?? 'Protected Naturschutzgebiet'} — foraging and leaving marked trails are illegal under NRW nature conservation law.`,
-      limitingFactor: 'Legal NSG protection',
+      summaryReason: `${stand.nsgName ?? 'Geschütztes Naturschutzgebiet'} — Pilzesammeln und das Verlassen der Wege sind nach NRW-Naturschutzrecht verboten.`,
+      limitingFactor: 'Gesetzlicher NSG-Schutz',
     };
   }
 
   if (dynamic.frostBlocked) {
     return {
-      summaryReason: `Frost suppression (${dynamic.minAirTempC.toFixed(1)}°C air / ${dynamic.soilTemp6cmC.toFixed(1)}°C soil) halts active ${species.germanName} fruiting.`,
-      limitingFactor: 'Sub-zero frost / cold soil',
+      summaryReason: `Frosthemmung (${dynamic.minAirTempC.toFixed(1)} °C Luft / ${dynamic.soilTemp6cmC.toFixed(1)} °C Boden) stoppt das Wachstum von ${species.germanName}.`,
+      limitingFactor: 'Nachtfrost / kalter Boden',
     };
   }
 
   if (dynamic.seasonScore < 0.15) {
     return {
-      summaryReason: `Outside normal German fruiting window for ${species.germanName} (${species.seasonLabel}).`,
-      limitingFactor: 'Out of seasonal window',
+      summaryReason: `Außerhalb der üblichen Saison für ${species.germanName} (${species.seasonLabel}).`,
+      limitingFactor: 'Außerhalb der Saison',
     };
   }
 
-  const scoredChecks: { key: string; score: number; limitMsg: string }[] = [
+  const scoredChecks: { key: string; score: number; limitMsg: string; reasonPhrase: string }[] = [
     {
       key: 'host',
       score: habitat.hostScore,
-      limitMsg: `Weak host-tree match (prefers ${species.hostSummary})`,
+      limitMsg: `Geringer Wirtsbaum-Anteil (bevorzugt ${species.hostSummary})`,
+      reasonPhrase: `einen geringen Anteil passender Wirtsbäume (${species.hostSummary})`,
     },
     {
       key: 'ph',
       score: habitat.soilPhScore,
-      limitMsg: `Soil pH ${stand.soilPh.toFixed(1)} deviates from optimal pH ${species.optimalPh.toFixed(1)}`,
+      limitMsg: `Boden-pH ${stand.soilPh.toFixed(1)} weicht vom Optimum pH ${species.optimalPh.toFixed(1)} ab`,
+      reasonPhrase: `einen abweichenden Boden-pH (${stand.soilPh.toFixed(1)} statt ideal ~${species.optimalPh.toFixed(1)})`,
     },
     {
       key: 'rain',
       score: dynamic.rainLagScore,
-      limitMsg: `Low 14-day effective rainfall (${dynamic.weightedRainLagMm.toFixed(0)} mm vs. ~${species.optimalRainLagMm} mm target)`,
+      limitMsg: `Wenig 14-Tage-Regen (${dynamic.weightedRainLagMm.toFixed(0)} mm vs. ~${species.optimalRainLagMm} mm Ziel)`,
+      reasonPhrase: `geringen 14-Tage-Vorregen (${dynamic.weightedRainLagMm.toFixed(0)} mm statt ~${species.optimalRainLagMm} mm Ziel)`,
     },
     {
       key: 'moisture',
       score: dynamic.soilMoistureScore,
-      limitMsg: `Topsoil moisture (${(dynamic.soilMoisture3to9 * 100).toFixed(0)}%) below mycelial threshold`,
+      limitMsg: `Oberbodenfeuchte (${(dynamic.soilMoisture3to9 * 100).toFixed(0)} %) unter Myzel-Optimum`,
+      reasonPhrase: `niedrige Oberbodenfeuchte (${(dynamic.soilMoisture3to9 * 100).toFixed(0)} %)`,
     },
     {
       key: 'temp',
       score: dynamic.soilTempScore,
-      limitMsg: `6 cm soil temp (${dynamic.soilTemp6cmC.toFixed(1)}°C) outside ideal ${species.optimalSoilTempC.toFixed(0)}°C zone`,
+      limitMsg: `6-cm-Bodentemp. (${dynamic.soilTemp6cmC.toFixed(1)} °C) außerhalb Idealbereich (~${species.optimalSoilTempC.toFixed(0)} °C)`,
+      reasonPhrase: `eine Bodentemperatur von ${dynamic.soilTemp6cmC.toFixed(1)} °C (ideal ~${species.optimalSoilTempC.toFixed(0)} °C)`,
     },
   ];
   scoredChecks.sort((a, b) => a.score - b.score);
   const weakest = scoredChecks[0];
 
   if (weakest.score >= 0.72) {
-    const shockNote = dynamic.thermalShockBonus ? ' plus autumn cooling flush trigger' : '';
+    const shockNote = dynamic.thermalShockBonus ? ' plus herbstlicher Kältereiz' : '';
     return {
-      summaryReason: `Strong ${species.hostSummary.toLowerCase()} stand on pH ${stand.soilPh.toFixed(1)} substrate with ${dynamic.weightedRainLagMm.toFixed(0)} mm rain lag${shockNote}.`,
-      limitingFactor: 'All ecological conditions aligned',
+      summaryReason: `Starker Bestand (${species.hostSummary}) auf pH-${stand.soilPh.toFixed(1)}-Boden mit ${dynamic.weightedRainLagMm.toFixed(0)} mm Regengedächtnis${shockNote}.`,
+      limitingFactor: 'Alle ökologischen Faktoren passen',
     };
   }
 
   return {
-    summaryReason: `${species.germanName} suitability moderated primarily by ${weakest.limitMsg.toLowerCase()}.`,
+    summaryReason: `Eignung für ${species.germanName} vor allem begrenzt durch ${weakest.reasonPhrase}.`,
     limitingFactor: weakest.limitMsg,
   };
 }
