@@ -11,7 +11,14 @@ const DB_VERSION = 1;
 const STORE_WEATHER = 'weather';
 const STORE_PACKS = 'offline_packs';
 const STORE_OSM_STANDS = 'osm_stands';
-export const TILE_CACHE_NAME = 'pilzatlas-topo-tiles-v1';
+export const TILE_CACHE_NAME = 'pilzatlas-basemapde-v1';
+
+const BASEMAP_DE_SHARED_ASSETS = [
+  'https://sgx.geodatenzentrum.de/gdz_basemapde_vektor/styles/bm_web_top.json',
+  'https://sgx.geodatenzentrum.de/gdz_basemapde_vektor/styles/bm_web_col.json',
+  'https://sgx.geodatenzentrum.de/gdz_basemapde_vektor/tiles/v2/bm_web_de_3857/bm_web_de_3857.json',
+  'https://sgx.geodatenzentrum.de/gdz_basemapde_vektor/tiles/v2/bm_web_hl_de_3857/bm_web_hl_de_3857.json',
+];
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -174,15 +181,22 @@ function latLngToTile(lat: number, lng: number, zoom: number): { x: number; y: n
 
 export function computeTileUrlsForSubRegion(subRegion: SubRegionId): string[] {
   const [[south, west], [north, east]] = NRW_SUBREGIONS[subRegion].bounds;
-  const urls: string[] = [];
-  // Cache zooms 9, 10, 11, and 12 for balanced full-Naturraum coverage & fast offline download
-  const zooms = [9, 10, 11, 12];
+  const urls: string[] = [...BASEMAP_DE_SHARED_ASSETS];
+  // Cache official basemap.de Web Vektor tiles (512px vector tiles at z8-12 cover down to street/forest path detail)
+  const zooms = [8, 9, 10, 11, 12];
   for (const z of zooms) {
     const topLeft = latLngToTile(north, west, z);
     const bottomRight = latLngToTile(south, east, z);
     for (let x = topLeft.x; x <= bottomRight.x; x++) {
       for (let y = topLeft.y; y <= bottomRight.y; y++) {
-        urls.push(`https://a.tile.opentopomap.org/${z}/${x}/${y}.png`);
+        urls.push(
+          `https://sgx.geodatenzentrum.de/gdz_basemapde_vektor/tiles/v2/bm_web_de_3857/${z}/${x}/${y}.pbf`
+        );
+        if (z >= 10) {
+          urls.push(
+            `https://sgx.geodatenzentrum.de/gdz_basemapde_vektor/tiles/v2/bm_web_hl_de_3857/${z}/${x}/${y}.pbf`
+          );
+        }
       }
     }
   }
@@ -203,8 +217,8 @@ export async function downloadSubRegionOfflinePack(
 
   if (typeof caches !== 'undefined') {
     const cache = await caches.open(TILE_CACHE_NAME);
-    // Throttled batches of 6 concurrent requests so we respect OpenTopoMap tile servers
-    const batchSize = 6;
+    // Throttled batches of 8 concurrent requests for official BKG / basemap.de vector tile server
+    const batchSize = 8;
     for (let i = 0; i < urls.length; i += batchSize) {
       const slice = urls.slice(i, i + batchSize);
       await Promise.all(
@@ -235,8 +249,8 @@ export async function downloadSubRegionOfflinePack(
   }
 
   const standCount = NRW_FOREST_STANDS.filter((s) => s.subRegion === subRegion).length;
-  // Typical OpenTopoMap PNG tile is ~36 KB
-  const estimatedMb = Number(((cachedCount * 36) / 1024 + 0.15).toFixed(1));
+  // Typical basemap.de PBF vector tile is ~28 KB
+  const estimatedMb = Number(((cachedCount * 28) / 1024 + 0.25).toFixed(1));
   const record: OfflinePackRecord = {
     subRegion,
     cachedAt: new Date().toISOString(),

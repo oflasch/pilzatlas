@@ -52,7 +52,7 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,webp,woff,woff2}'],
+          globPatterns: ['**/*.{js,mjs,css,html,ico,png,svg,jpg,webp,woff,woff2}'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           runtimeCaching: [
             {
@@ -84,12 +84,12 @@ export default defineConfig(() => {
               },
             },
             {
-              urlPattern: /^https:\/\/([a-c]\.tile\.opentopomap\.org|tile\.openstreetmap\.org)\/.*/i,
+              urlPattern: /^https:\/\/sgx\.geodatenzentrum\.de\/(gdz_basemapde_vektor|wms_basemapde_schummerung).*/i,
               handler: 'CacheFirst',
               options: {
-                cacheName: 'pilzatlas-topo-tiles-v1',
+                cacheName: 'pilzatlas-basemapde-v1',
                 expiration: {
-                  maxEntries: 1200,
+                  maxEntries: 2500,
                   maxAgeSeconds: 60 * 60 * 24 * 30,
                 },
                 cacheableResponse: {

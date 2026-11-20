@@ -12,7 +12,7 @@ It combines official OpenGeodata.NRW forestry, soil, and nature-reserve layers, 
 .
 ├── Dockerfile                        # Multi-stage Docker build (static PWA + Express WFS proxy)
 ├── .dockerignore                     # Excludes node_modules, build outputs & local artifacts
-├── index.html                        # App entry HTML (German locale, PWA meta tags, Leaflet CSS)
+├── index.html                        # App entry HTML (German locale, PWA meta tags)
 ├── metadata.json                     # App metadata
 ├── package.json                      # Dependencies & npm scripts
 ├── tsconfig.json                     # TypeScript configuration
@@ -20,9 +20,9 @@ It combines official OpenGeodata.NRW forestry, soil, and nature-reserve layers, 
 ├── server.ts                         # Express dev/prod server & /api/nrw/geodata WFS proxy
 ├── public/                           # Static PWA icons (192px, 512px, maskable, Apple touch, SVG)
 └── src/
-    ├── main.tsx                      # React root mount + Service Worker registration
+    ├── main.tsx                      # React root mount + MapLibre GL CSS + Service Worker registration
     ├── App.tsx                       # Top-level state, tab navigation, weather/geodata orchestration
-    ├── index.css                     # Tailwind CSS v4 entry & Leaflet/mobile layout overrides
+    ├── index.css                     # Tailwind CSS v4 entry & MapLibre GL/mobile layout overrides
     ├── assets/images/                # Local botanical photographs for the 8 mushroom species
     ├── types/
     │   └── foraging.ts               # Core TypeScript models (stands, species, weather, predictions)
@@ -42,11 +42,11 @@ It combines official OpenGeodata.NRW forestry, soil, and nature-reserve layers, 
     │   └── nrwGeodataProxy.ts        # Server-side WFS client for Wald & Holz NRW, GD NRW FSK05 & LANUV
     └── components/
         ├── MushroomLogo.tsx          # Custom comic-style mushroom SVG mascot
-        ├── TopographicMapView.tsx    # Interactive Leaflet map, filters, 7-day strip, GPS & layers
+        ├── TopographicMapView.tsx    # Interactive MapLibre GL basemap.de map, filters, 7-day strip, GPS & layers
         ├── StandInspectorPanel.tsx   # Bottom-sheet / sidebar habitat breakdown & legal BArtSchV notes
         ├── ForecastView.tsx          # 6-region NRW weather overview, rainfall chart & top stand ranking
         ├── FieldGuideView.tsx        # Searchable German mushroom guide & toxic lookalike modal
-        ├── OfflinePacksView.tsx      # Regional OpenTopoMap tile downloader & IndexedDB manager
+        ├── OfflinePacksView.tsx      # Regional basemap.de vector tile downloader & IndexedDB manager
         ├── OfflineIndicator.tsx      # Offline mode status banner
         └── PWAInstallButton.tsx      # Native PWA install trigger & iOS Safari install instructions
 ```
@@ -55,10 +55,10 @@ It combines official OpenGeodata.NRW forestry, soil, and nature-reserve layers, 
 
 ## Architecture Overview
 
-### 1. Frontend SPA & PWA (`React 19` + `Vite 8` + `Tailwind CSS v4` + `Leaflet`)
+### 1. Frontend SPA & PWA (`React 19` + `Vite 8` + `Tailwind CSS v4` + `MapLibre GL`)
 - **Single-Page Application:** All views (*Karte*, *Prognose*, *Pilzführer*, *Offline*) run completely client-side with zero external database or user-account dependencies.
-- **Interactive Topographic Map:** Uses Leaflet with **OpenTopoMap** tiles (with automatic OpenStreetMap fallback), custom Naturraum overview labels across all 6 NRW regions (*Bergisches Land*, *Eifel & Hohes Venn*, *Sauerland & Siegerland*, *Teutoburger Wald & Egge*, *Münsterland*, *Niederrhein & Ruhr*), interactive polygon overlays, and browser GPS tracking.
-- **Offline-First PWA (`vite-plugin-pwa`):** Generates a Workbox Service Worker (`sw.js`) and Web App Manifest (`manifest.webmanifest`) at build time. App assets and species photos are precached; OpenTopoMap tiles and Open-Meteo responses are cached at runtime; regional tile packs and fetched NRW stands are stored locally in **IndexedDB** (`src/services/offlineStorage.ts`).
+- **Interactive Vector Topographic Map:** Uses **MapLibre GL JS** with official free German **basemap.de Web Vektor** tiles (AdV / GeoBasis-DE / BKG — Topografie & Relief `bm_web_top` and Klassisch Farbe `bm_web_col`), crisp Retina labels rendered above translucent forest stand polygons, custom Naturraum overview labels across all 6 NRW regions (*Bergisches Land*, *Eifel & Hohes Venn*, *Sauerland & Siegerland*, *Teutoburger Wald & Egge*, *Münsterland*, *Niederrhein & Ruhr*), and browser GPS tracking.
+- **Offline-First PWA (`vite-plugin-pwa`):** Generates a Workbox Service Worker (`sw.js`) and Web App Manifest (`manifest.webmanifest`) at build time. App assets and species photos are precached; basemap.de vector tiles/styles and Open-Meteo responses are cached at runtime; regional vector tile packs and fetched NRW stands are stored locally in **IndexedDB** (`src/services/offlineStorage.ts`).
 
 ### 2. Mycological Ecology Engine (`src/services/ecologyEngine.ts`)
 - Evaluates every forest stand polygon against each mushroom species using:
@@ -118,7 +118,7 @@ Because **PilzAtlas NRW** is a PWA (Service Workers, GPS geolocation, and iOS/An
 Running `npm run build` produces a self-contained static site in `dist/`. On a pure static web server (Nginx, Caddy, Apache) with **no Node.js runtime required on the server**:
 - The interactive topographic map and all 6 NRW *Naturräume* curated forest polygons work out of the box.
 - Live DWD ICON-D2 weather and 7-day forecasts work directly via Open-Meteo (browser CORS).
-- The 8-species offline field guide, ecological scoring engine, GPS tracking, and regional OpenTopoMap offline pack downloads all work natively.
+- The 8-species offline field guide, ecological scoring engine, GPS tracking, and regional basemap.de vector tile offline pack downloads all work natively.
 - **Note on the "NRW-Daten" button:** Only the on-demand high-resolution WFS loader (`GET /api/nrw/geodata`) uses the Node/Express proxy (upstream OpenGeodata.NRW WFS endpoints do not send permissive browser CORS headers). If you want that button active as well, see the optional 5-line proxy section below.
 
 ---

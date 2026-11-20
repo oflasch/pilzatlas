@@ -132,14 +132,14 @@ export const OfflinePacksView: React.FC<OfflinePacksViewProps> = ({
         {/* Sub-Region Offline Pack Rows (Compact Single-Row Layout) */}
         <div className="mt-3 space-y-1.5 sm:mt-4 sm:space-y-2">
           <h2 className="text-[11px] font-bold text-[#132A1E] sm:text-xs">
-            NRW-Naturraum-Pakete (OpenTopoMap Zoom 9–12 + DWD-Wetter)
+            NRW-Naturraum-Pakete (basemap.de Vektor Zoom 8–12 + DWD-Wetter)
           </h2>
 
           {NRW_SUBREGION_LIST.map((sr) => {
             const pack = offlinePacks[sr.id];
             const isDownloading = downloadingId === sr.id;
             const estTiles = computeTileUrlsForSubRegion(sr.id).length;
-            const estMb = ((estTiles * 36) / 1024 + 0.15).toFixed(1);
+            const estMb = ((estTiles * 28) / 1024 + 0.25).toFixed(1);
             const pct =
               isDownloading && progress.total > 0
                 ? Math.round((progress.done / progress.total) * 100)
@@ -212,7 +212,7 @@ export const OfflinePacksView: React.FC<OfflinePacksViewProps> = ({
                 {isDownloading && (
                   <div className="mt-2">
                     <div className="flex justify-between font-mono text-[10px] tabular-nums text-[#4A5D52]">
-                      <span>OpenTopoMap-Kacheln werden gespeichert…</span>
+                      <span>basemap.de-Vektorkacheln werden gespeichert…</span>
                       <span>
                         {progress.done} / {progress.total}
                       </span>
@@ -294,8 +294,9 @@ export const OfflinePacksView: React.FC<OfflinePacksViewProps> = ({
                 DWD ICON-D2 / ICON-EU (21-Tage-Vorregen, Bodenfeuchte 3–9 cm, Bodentemperatur 6 cm).
               </li>
               <li>
-                • <strong className="text-[#132A1E]">Topografische Basiskarte:</strong> OpenTopoMap
-                / OpenStreetMap-Kacheln offline gespeichert via PWA Cache Storage.
+                • <strong className="text-[#132A1E]">Topografische Vektorkarte:</strong> Amtliche{' '}
+                <strong>basemap.de Web Vektor</strong> (AdV / GeoBasis-DE / BKG, CC BY 4.0) mit
+                Höhenlinien &amp; Relief, gerendert via MapLibre GL und lokal im PWA-Cache.
               </li>
             </ul>
           </section>

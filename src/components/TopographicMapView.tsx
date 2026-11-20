@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import L from 'leaflet';
+import * as maplibregl from 'maplibre-gl';
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import {
   Calendar,
   Crosshair,
@@ -30,6 +31,33 @@ import type {
 } from '../types/foraging';
 import { StandInspectorPanel } from './StandInspectorPanel';
 
+// Explicitly bind MapLibre GL v6's worker to the Vite-resolved URL so workers load
+// cleanly in both Vite dev pre-bundling and hashed production/Docker builds.
+maplibregl.setWorkerUrl(maplibreWorkerUrl);
+
+type BasemapStyleId = 'top' | 'col';
+
+const BASEMAP_DE_STYLES: Record<BasemapStyleId, string> = {
+  top: 'https://sgx.geodatenzentrum.de/gdz_basemapde_vektor/styles/bm_web_top.json',
+  col: 'https://sgx.geodatenzentrum.de/gdz_basemapde_vektor/styles/bm_web_col.json',
+};
+
+const OFFLINE_FALLBACK_STYLE: maplibregl.StyleSpecification = {
+  version: 8,
+  sources: {},
+  layers: [
+    {
+      id: 'offline-parchment-bg',
+      type: 'background',
+      paint: { 'background-color': '#ECE9DF' },
+    },
+  ],
+};
+
+const STAND_SOURCE_ID = 'nrw-stands';
+const GPS_SOURCE_ID = 'gps-location';
+const NSG_PATTERN_ID = 'nsg-crimson-hatch';
+
 interface TopographicMapViewProps {
   stands: NRWForestStand[];
   predictions: Record<string, StandPrediction>;
@@ -52,6 +80,163 @@ interface TopographicMapViewProps {
   highResCount: number;
   isOnline: boolean;
   onOpenSpeciesGuide: (speciesId: string) => void;
+}
+
+type StandFeatureProps = {
+  id: string;
+  name: string;
+  sourceNote: string;
+  areaHectares: number;
+  isProtectedNSG: boolean;
+  isSelected: boolean;
+  isDashed: boolean;
+  probability: number;
+  bestSpeciesName: string;
+  fillColor: string;
+  fillOpacity: number;
+  strokeColor: string;
+  strokeWidth: number;
+};
+
+interface GeoJsonPolygonGeometry {
+  type: 'Polygon';
+  coordinates: [number, number][][];
+}
+
+interface GeoJsonPointGeometry {
+  type: 'Point';
+  coordinates: [number, number];
+}
+
+interface GeoJsonFeature<
+  G extends GeoJsonPolygonGeometry | GeoJsonPointGeometry = GeoJsonPolygonGeometry | GeoJsonPointGeometry,
+  P = Record<string, unknown>,
+> {
+  type: 'Feature';
+  properties: P;
+  geometry: G;
+}
+
+interface GeoJsonFeatureCollection<
+  G extends GeoJsonPolygonGeometry | GeoJsonPointGeometry = GeoJsonPolygonGeometry | GeoJsonPointGeometry,
+  P = Record<string, unknown>,
+> {
+  type: 'FeatureCollection';
+  features: GeoJsonFeature<G, P>[];
+}
+
+const EMPTY_FC: GeoJsonFeatureCollection = { type: 'FeatureCollection', features: [] };
+
+function toLngLat([lat, lng]: [number, number]): [number, number] {
+  return [lng, lat];
+}
+
+function toLngLatBounds(
+  bounds: [[number, number], [number, number]]
+): [[number, number], [number, number]] {
+  const [[south, west], [north, east]] = bounds;
+  return [
+    [west, south],
+    [east, north],
+  ];
+}
+
+function toClosedGeoJsonRing(coords: [number, number][]): [number, number][] {
+  if (coords.length === 0) return [];
+  const ring = coords.map(([lat, lng]): [number, number] => [lng, lat]);
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  if (first[0] !== last[0] || first[1] !== last[1]) {
+    ring.push([first[0], first[1]]);
+  }
+  return ring;
+}
+
+function createGeoJsonCircle(
+  lng: number,
+  lat: number,
+  radiusMeters: number,
+  steps = 48
+): GeoJsonFeature<GeoJsonPolygonGeometry, { kind: string }> {
+  const earthRadius = 6378137;
+  const latRad = (lat * Math.PI) / 180;
+  const coords: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) {
+    const angle = (i / steps) * 2 * Math.PI;
+    const dLat = (radiusMeters * Math.cos(angle)) / earthRadius;
+    const dLng = (radiusMeters * Math.sin(angle)) / (earthRadius * Math.cos(latRad));
+    coords.push([lng + (dLng * 180) / Math.PI, lat + (dLat * 180) / Math.PI]);
+  }
+  return {
+    type: 'Feature',
+    properties: { kind: 'accuracy' },
+    geometry: { type: 'Polygon', coordinates: [coords] },
+  };
+}
+
+function createCrimsonHatchImage(): { width: number; height: number; data: Uint8Array } | null {
+  if (typeof document === 'undefined') return null;
+  const size = 16; // 8 CSS px at 2x Retina pixelRatio
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.fillStyle = 'rgba(185, 28, 28, 0.14)';
+  ctx.fillRect(0, 0, size, size);
+
+  ctx.strokeStyle = 'rgba(153, 27, 27, 0.72)';
+  ctx.lineWidth = 3.2;
+  ctx.beginPath();
+  ctx.moveTo(-size / 2, size / 2);
+  ctx.lineTo(size / 2, -size / 2);
+  ctx.moveTo(0, size);
+  ctx.lineTo(size, 0);
+  ctx.moveTo(size / 2, size * 1.5);
+  ctx.lineTo(size * 1.5, size / 2);
+  ctx.stroke();
+
+  const imgData = ctx.getImageData(0, 0, size, size);
+  return {
+    width: size,
+    height: size,
+    data: new Uint8Array(imgData.data.buffer),
+  };
+}
+
+function buildHoverPopupElement(props: StandFeatureProps): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'text-xs leading-snug';
+
+  if (props.isProtectedNSG) {
+    const title = document.createElement('strong');
+    title.className = 'text-[#991B1B] block';
+    title.textContent = 'NSG · Sammelverbot';
+    const sub = document.createElement('span');
+    sub.textContent = `${props.name} `;
+    const src = document.createElement('span');
+    src.className = 'text-[#6B7280]';
+    src.textContent = `(${props.sourceNote})`;
+    sub.appendChild(src);
+    wrap.append(title, sub);
+  } else {
+    const title = document.createElement('strong');
+    title.className = 'block text-[#132A1E]';
+    title.textContent = props.name;
+    const line = document.createElement('div');
+    const prob = document.createElement('span');
+    prob.className = 'font-mono font-semibold text-[#132A1E]';
+    prob.textContent = `${props.probability}%`;
+    const mid = document.createTextNode(` · ${props.bestSpeciesName} · `);
+    const meta = document.createElement('span');
+    meta.className = 'text-[#4A5D52]';
+    meta.textContent = `${props.areaHectares} ha · ${props.sourceNote}`;
+    line.append(prob, mid, meta);
+    wrap.append(title, line);
+  }
+
+  return wrap;
 }
 
 function formatDayChip(isoDate: string, offset: number): { top: string; bottom: string } {
@@ -85,20 +270,28 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
   onOpenSpeciesGuide,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const polygonsLayerRef = useRef<L.LayerGroup | null>(null);
-  const naturraumLabelsLayerRef = useRef<L.LayerGroup | null>(null);
-  const gpsMarkerRef = useRef<L.CircleMarker | null>(null);
-  const gpsAccuracyRef = useRef<L.Circle | null>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const hoverPopupRef = useRef<maplibregl.Popup | null>(null);
+  const badgeMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const naturraumMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const standsGeoJsonRef = useRef<GeoJsonFeatureCollection>(EMPTY_FC);
+  const gpsGeoJsonRef = useRef<GeoJsonFeatureCollection>(EMPTY_FC);
+  const onSelectStandRef = useRef(onSelectStand);
+  const styleAppliedRef = useRef<BasemapStyleId>('top');
   const watchIdRef = useRef<number | null>(null);
+  const hasCenteredGpsRef = useRef<boolean>(false);
   const fetchedTilesRef = useRef<Set<string>>(new Set());
   const autoLoadTimerRef = useRef<number | null>(null);
 
+  useEffect(() => {
+    onSelectStandRef.current = onSelectStand;
+  }, [onSelectStand]);
+
+  const [basemapStyle, setBasemapStyle] = useState<BasemapStyleId>('top');
   const [gpsActive, setGpsActive] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
-  const [basemapFallback, setBasemapFallback] = useState(false);
   const [showControlsSheet, setShowControlsSheet] = useState(false);
-  const [mapZoom, setMapZoom] = useState<number>(8);
+  const [mapZoom, setMapZoom] = useState<number>(7.5);
   const [viewportBounds, setViewportBounds] = useState<{
     south: number;
     west: number;
@@ -107,6 +300,7 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
   } | null>(null);
   const [dismissedMsg, setDismissedMsg] = useState<string | null>(null);
   const [sheetExpanded, setSheetExpanded] = useState<boolean>(false);
+  const [styleReadyVersion, setStyleReadyVersion] = useState<number>(0);
 
   // Reset mobile sheet to half-height peek whenever a new polygon is selected
   useEffect(() => {
@@ -144,39 +338,223 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
     return { highCount, peakCount, nsgCount };
   }, [stands, predictions, activeRegion]);
 
-  // Initialize Leaflet map once
+  // Helper that installs our GeoJSON sources, hatch pattern, and layers above all basemap fills/roads
+  // while keeping basemap.de's top place/landscape text labels cleanly on top.
+  const installOverlayLayers = (map: maplibregl.Map) => {
+    if (!map.hasImage(NSG_PATTERN_ID)) {
+      const hatch = createCrimsonHatchImage();
+      if (hatch) {
+        map.addImage(NSG_PATTERN_ID, hatch, { pixelRatio: 2 });
+      }
+    }
+
+    if (!map.getSource(STAND_SOURCE_ID)) {
+      map.addSource(STAND_SOURCE_ID, {
+        type: 'geojson',
+        data: standsGeoJsonRef.current as Parameters<maplibregl.GeoJSONSource['setData']>[0],
+        // Low simplification tolerance ensures small 2-30 ha NRW forest stands never vanish at overview zoom
+        tolerance: 0.02,
+        buffer: 64,
+      });
+    }
+
+    // Place polygons right before the top-level symbol/label block (after ALL basemap fills,
+    // rasters, water, roads, and bridges — avoiding early contour-label symbol layers at idx ~41).
+    const styleLayers = map.getStyle()?.layers ?? [];
+    let lastNonSymbolIdx = -1;
+    styleLayers.forEach((l: maplibregl.LayerSpecification, idx: number) => {
+      if (l.type !== 'symbol') lastNonSymbolIdx = idx;
+    });
+    const topLabelBeforeId =
+      lastNonSymbolIdx >= 0 && lastNonSymbolIdx + 1 < styleLayers.length
+        ? styleLayers[lastNonSymbolIdx + 1].id
+        : undefined;
+
+    if (!map.getLayer('nrw-stands-fill')) {
+      map.addLayer(
+        {
+          id: 'nrw-stands-fill',
+          type: 'fill',
+          source: STAND_SOURCE_ID,
+          filter: ['!=', ['get', 'isProtectedNSG'], true],
+          paint: {
+            'fill-color': ['get', 'fillColor'],
+            'fill-opacity': ['get', 'fillOpacity'],
+          },
+        },
+        topLabelBeforeId
+      );
+    }
+
+    if (!map.getLayer('nrw-stands-nsg-tint')) {
+      map.addLayer(
+        {
+          id: 'nrw-stands-nsg-tint',
+          type: 'fill',
+          source: STAND_SOURCE_ID,
+          filter: ['==', ['get', 'isProtectedNSG'], true],
+          paint: {
+            'fill-color': '#B91C1C',
+            'fill-opacity': 0.22,
+          },
+        },
+        topLabelBeforeId
+      );
+    }
+
+    if (!map.getLayer('nrw-stands-nsg-fill')) {
+      map.addLayer(
+        {
+          id: 'nrw-stands-nsg-fill',
+          type: 'fill',
+          source: STAND_SOURCE_ID,
+          filter: ['==', ['get', 'isProtectedNSG'], true],
+          paint: {
+            'fill-pattern': NSG_PATTERN_ID,
+            'fill-opacity': 0.9,
+          },
+        },
+        topLabelBeforeId
+      );
+    }
+
+    if (!map.getLayer('nrw-stands-outline-solid')) {
+      map.addLayer(
+        {
+          id: 'nrw-stands-outline-solid',
+          type: 'line',
+          source: STAND_SOURCE_ID,
+          filter: ['all', ['!=', ['get', 'isDashed'], true], ['!=', ['get', 'isSelected'], true]],
+          paint: {
+            'line-color': ['get', 'strokeColor'],
+            'line-width': ['get', 'strokeWidth'],
+          },
+        },
+        topLabelBeforeId
+      );
+    }
+
+    if (!map.getLayer('nrw-stands-outline-dashed')) {
+      map.addLayer(
+        {
+          id: 'nrw-stands-outline-dashed',
+          type: 'line',
+          source: STAND_SOURCE_ID,
+          filter: ['all', ['==', ['get', 'isDashed'], true], ['!=', ['get', 'isSelected'], true]],
+          paint: {
+            'line-color': ['get', 'strokeColor'],
+            'line-width': ['get', 'strokeWidth'],
+            'line-dasharray': [3, 2],
+          },
+        },
+        topLabelBeforeId
+      );
+    }
+
+    if (!map.getLayer('nrw-stands-selected-outline')) {
+      map.addLayer(
+        {
+          id: 'nrw-stands-selected-outline',
+          type: 'line',
+          source: STAND_SOURCE_ID,
+          filter: ['==', ['get', 'isSelected'], true],
+          paint: {
+            'line-color': '#132A1E',
+            'line-width': 3.5,
+          },
+        },
+        topLabelBeforeId
+      );
+    }
+
+    // GPS accuracy halo & position marker sit above all map layers
+    if (!map.getSource(GPS_SOURCE_ID)) {
+      map.addSource(GPS_SOURCE_ID, {
+        type: 'geojson',
+        data: gpsGeoJsonRef.current,
+      });
+    }
+
+    if (!map.getLayer('gps-accuracy-fill')) {
+      map.addLayer({
+        id: 'gps-accuracy-fill',
+        type: 'fill',
+        source: GPS_SOURCE_ID,
+        filter: ['==', ['get', 'kind'], 'accuracy'],
+        paint: {
+          'fill-color': '#C86D1F',
+          'fill-opacity': 0.14,
+        },
+      });
+    }
+
+    if (!map.getLayer('gps-accuracy-line')) {
+      map.addLayer({
+        id: 'gps-accuracy-line',
+        type: 'line',
+        source: GPS_SOURCE_ID,
+        filter: ['==', ['get', 'kind'], 'accuracy'],
+        paint: {
+          'line-color': '#C86D1F',
+          'line-width': 1.2,
+          'line-opacity': 0.65,
+        },
+      });
+    }
+
+    if (!map.getLayer('gps-dot')) {
+      map.addLayer({
+        id: 'gps-dot',
+        type: 'circle',
+        source: GPS_SOURCE_ID,
+        filter: ['==', ['get', 'kind'], 'point'],
+        paint: {
+          'circle-radius': 7,
+          'circle-color': '#C86D1F',
+          'circle-stroke-color': '#FFFFFF',
+          'circle-stroke-width': 2.5,
+        },
+      });
+    }
+  };
+
+  // Initialize MapLibre GL map once with official German basemap.de Web Vektor style
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    const map = L.map(mapContainerRef.current, {
-      center: [51.42, 7.62],
-      zoom: 8,
-      minZoom: 7,
-      maxZoom: 16,
-      zoomControl: false,
-      preferCanvas: false, // SVG renderer allows crisp crimson diagonal hatch pattern on NSG zones
+    let fellBackOffline = false;
+    const map = new maplibregl.Map({
+      container: mapContainerRef.current,
+      style: BASEMAP_DE_STYLES[basemapStyle],
+      center: [7.62, 51.42],
+      zoom: 7.5,
+      minZoom: 6,
+      maxZoom: 17.5,
+      attributionControl: false,
+      dragRotate: false,
+      pitchWithRotate: false,
+      touchPitch: false,
     });
 
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
-    L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(map);
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
+    map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
+    map.addControl(
+      new maplibregl.AttributionControl({
+        compact: true,
+        customAttribution: '© GeoBasis-DE / BKG (basemap.de)',
+      }),
+      'bottom-right'
+    );
 
-    const topoLayer = L.tileLayer('https://a.tile.opentopomap.org/{z}/{x}/{y}.png', {
-      maxZoom: 16,
-      attribution:
-        '&copy; <a href="https://openstreetmap.org/copyright">OSM</a> · <a href="https://opentopomap.org">OpenTopoMap</a>',
-      crossOrigin: true,
+    const hoverPopup = new maplibregl.Popup({
+      closeButton: false,
+      closeOnClick: false,
+      className: 'pilz-maplibre-popup',
+      offset: 12,
+      maxWidth: '280px',
     });
+    hoverPopupRef.current = hoverPopup;
 
-    let tileErrors = 0;
-    topoLayer.on('tileerror', () => {
-      tileErrors++;
-      if (tileErrors >= 6 && !basemapFallback) {
-        setBasemapFallback(true);
-      }
-    });
-
-    topoLayer.addTo(map);
-    map.fitBounds(NRW_CORRIDOR_BOUNDS, { padding: [22, 22] });
     const syncViewport = () => {
       setMapZoom(map.getZoom());
       const b = map.getBounds();
@@ -187,32 +565,77 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
         east: b.getEast(),
       });
     };
-    syncViewport();
-    map.on('zoomend', syncViewport);
-    map.on('moveend', syncViewport);
 
-    // Inject SVG diagonal hatch pattern into Leaflet's overlay pane for color-blind-safe NSG zones
-    map.whenReady(() => {
-      const overlayPane = map.getPanes().overlayPane;
-      const svgEl = overlayPane.querySelector('svg');
-      if (svgEl && !svgEl.querySelector('#nsg-crimson-hatch')) {
-        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-        defs.innerHTML = `
-          <pattern id="nsg-crimson-hatch" width="8" height="8" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
-            <rect width="8" height="8" fill="#B91C1C" fill-opacity="0.14" />
-            <line x1="0" y1="0" x2="0" y2="8" stroke="#991B1B" stroke-width="2.2" stroke-opacity="0.72" />
-          </pattern>
-        `;
-        svgEl.insertBefore(defs, svgEl.firstChild);
+    map.on('style.load', () => {
+      installOverlayLayers(map);
+      setStyleReadyVersion((v) => v + 1);
+    });
+
+    map.on('styleimagemissing', (e: { id: string }) => {
+      if (e.id === NSG_PATTERN_ID && !map.hasImage(NSG_PATTERN_ID)) {
+        const hatch = createCrimsonHatchImage();
+        if (hatch) {
+          map.addImage(NSG_PATTERN_ID, hatch, { pixelRatio: 2 });
+        }
       }
     });
 
-    polygonsLayerRef.current = L.layerGroup().addTo(map);
-    naturraumLabelsLayerRef.current = L.layerGroup().addTo(map);
+    map.on('load', () => {
+      map.fitBounds(toLngLatBounds(NRW_CORRIDOR_BOUNDS), { padding: 24, duration: 0 });
+      syncViewport();
+    });
+
+    map.on('error', (e: maplibregl.ErrorEvent) => {
+      // If initial basemap.de style fails while offline and uncached, drop to clean parchment canvas
+      if (!fellBackOffline && !navigator.onLine && e?.error) {
+        const msg = String(e.error.message || '');
+        if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+          fellBackOffline = true;
+          map.setStyle(OFFLINE_FALLBACK_STYLE);
+        }
+      }
+    });
+
+    map.on('zoomend', syncViewport);
+    map.on('moveend', syncViewport);
+
+    const queryStandAtPoint = (point: maplibregl.Point) => {
+      const targetLayers = ['nrw-stands-nsg-fill', 'nrw-stands-nsg-tint', 'nrw-stands-fill'].filter((id) =>
+        Boolean(map.getLayer(id))
+      );
+      if (targetLayers.length === 0) return null;
+      const hits = map.queryRenderedFeatures(point, { layers: targetLayers });
+      return hits[0] ?? null;
+    };
+
+    map.on('click', (e: maplibregl.MapMouseEvent) => {
+      const hit = queryStandAtPoint(e.point);
+      if (hit?.properties?.id) {
+        onSelectStandRef.current(String(hit.properties.id));
+      }
+    });
+
+    map.on('mousemove', (e: maplibregl.MapMouseEvent) => {
+      const hit = queryStandAtPoint(e.point);
+      if (!hit || !hit.properties) {
+        map.getCanvas().style.cursor = '';
+        hoverPopup.remove();
+        return;
+      }
+      map.getCanvas().style.cursor = 'pointer';
+      const p = hit.properties as unknown as StandFeatureProps;
+      hoverPopup.setLngLat(e.lngLat).setDOMContent(buildHoverPopupElement(p)).addTo(map);
+    });
+
+    map.getCanvas().addEventListener('mouseleave', () => {
+      map.getCanvas().style.cursor = '';
+      hoverPopup.remove();
+    });
+
     mapRef.current = map;
 
     const resizeObserver = new ResizeObserver(() => {
-      map.invalidateSize();
+      map.resize();
     });
     resizeObserver.observe(mapContainerRef.current);
 
@@ -221,67 +644,78 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
       if (watchIdRef.current !== null && navigator.geolocation) {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
+      badgeMarkersRef.current.forEach((m) => m.remove());
+      badgeMarkersRef.current = [];
+      naturraumMarkersRef.current.forEach((m) => m.remove());
+      naturraumMarkersRef.current = [];
+      hoverPopup.remove();
       map.remove();
       mapRef.current = null;
     };
   }, []);
 
-  // Switch to OSM Standard fallback if OpenTopoMap fails repeatedly online
+  // Switch between basemap.de Topografie (bm_web_top) and Klassisch Farbe (bm_web_col)
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !basemapFallback) return;
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 17,
-      attribution: '&copy; OpenStreetMap-Mitwirkende',
-      crossOrigin: true,
-    }).addTo(map);
-  }, [basemapFallback]);
+    if (!map || styleAppliedRef.current === basemapStyle) return;
+    styleAppliedRef.current = basemapStyle;
+    map.setStyle(BASEMAP_DE_STYLES[basemapStyle]);
+  }, [basemapStyle]);
 
   // Pan/zoom when sub-region filter changes
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     if (activeRegion === 'all') {
-      map.fitBounds(NRW_CORRIDOR_BOUNDS, { padding: [26, 26], animate: true });
+      map.fitBounds(toLngLatBounds(NRW_CORRIDOR_BOUNDS), { padding: 26, duration: 550 });
     } else {
       const meta = NRW_SUBREGIONS[activeRegion];
-      map.fitBounds(meta.bounds, { padding: [28, 28], animate: true });
+      map.fitBounds(toLngLatBounds(meta.bounds), { padding: 28, duration: 550 });
     }
   }, [activeRegion]);
 
-  // Render approximate cartographic Naturraum labels at overview zoom (<= 10)
+  // Render approximate cartographic Naturraum labels at overview zoom (<= 9.5 in MapLibre scale)
   useEffect(() => {
-    const labelGroup = naturraumLabelsLayerRef.current;
-    if (!labelGroup) return;
-    labelGroup.clearLayers();
-    if (mapZoom > 10) return;
+    const map = mapRef.current;
+    naturraumMarkersRef.current.forEach((m) => m.remove());
+    naturraumMarkersRef.current = [];
+    if (!map || mapZoom > 9.5) return;
 
     NRW_SUBREGION_LIST.forEach((sr) => {
       const isFocused = activeRegion === sr.id;
-      const icon = L.divIcon({
-        className: 'pilz-naturraum-label',
-        html: `<div style="transform:translate(-50%,-50%);font-family:'Bricolage Grotesque',sans-serif;font-size:${
-          mapZoom <= 8 ? 11 : 12.5
-        }px;font-weight:700;letter-spacing:0.06em;color:${
-          isFocused ? '#1B4332' : '#132A1E'
-        };text-shadow:0 1px 3px rgba(255,255,255,0.98),0 0 8px rgba(247,246,242,0.98),0 0 2px #FFFFFF;white-space:nowrap;pointer-events:auto;cursor:pointer;opacity:${
-          activeRegion === 'all' || isFocused ? 0.92 : 0.45
-        };">${sr.naturraumLabel}</div>`,
-        iconSize: [0, 0],
-        iconAnchor: [0, 0],
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.textContent = sr.naturraumLabel;
+      el.style.fontFamily = "'Bricolage Grotesque', sans-serif";
+      el.style.fontSize = mapZoom <= 7.2 ? '11px' : '12.5px';
+      el.style.fontWeight = '700';
+      el.style.letterSpacing = '0.06em';
+      el.style.color = isFocused ? '#1B4332' : '#132A1E';
+      el.style.textShadow =
+        '0 1px 3px rgba(255,255,255,0.98), 0 0 8px rgba(247,246,242,0.98), 0 0 2px #FFFFFF';
+      el.style.whiteSpace = 'nowrap';
+      el.style.cursor = 'pointer';
+      el.style.background = 'transparent';
+      el.style.border = 'none';
+      el.style.padding = '2px 4px';
+      el.style.opacity = activeRegion === 'all' || isFocused ? '0.94' : '0.45';
+      el.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        onChangeRegion(sr.id);
       });
-      L.marker(sr.labelPosition, { icon, interactive: true })
-        .on('click', () => onChangeRegion(sr.id))
-        .addTo(labelGroup);
+
+      const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat(toLngLat(sr.labelPosition))
+        .addTo(map);
+      naturraumMarkersRef.current.push(marker);
     });
   }, [mapZoom, activeRegion, onChangeRegion]);
 
-  // Automatic high-resolution NRW WFS loading when zoomed in to stand level (zoom >= 12)
+  // Automatic high-resolution NRW WFS loading when zoomed in to stand level (zoom >= 11 in MapLibre scale)
   useEffect(() => {
-    if (!isOnline || !layers.autoLoadHighRes || !viewportBounds || mapZoom < 12) return;
+    if (!isOnline || !layers.autoLoadHighRes || !viewportBounds || mapZoom < 11) return;
     const centerLat = (viewportBounds.south + viewportBounds.north) / 2;
     const centerLng = (viewportBounds.west + viewportBounds.east) / 2;
-    // Only auto-query inside NRW extent
     if (centerLat < 50.28 || centerLat > 52.55 || centerLng < 5.82 || centerLng > 9.5) return;
 
     const tileKey = `${(Math.round(centerLat * 20) / 20).toFixed(2)},${(Math.round(centerLng * 20) / 20).toFixed(2)}`;
@@ -298,36 +732,22 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
     };
   }, [viewportBounds, mapZoom, isOnline, layers.autoLoadHighRes, onLoadHighResNRW]);
 
-  // Pan gently to selected stand if selected externally (e.g. from Forecast tab)
+  // Fly gently to selected stand if selected externally (e.g. from Forecast tab)
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !selectedStand) return;
     const currentZoom = map.getZoom();
-    map.setView(selectedStand.centroid, Math.max(currentZoom, 12), { animate: true });
+    map.easeTo({
+      center: toLngLat(selectedStand.centroid),
+      zoom: Math.max(currentZoom, 11.5),
+      duration: 500,
+    });
   }, [selectedStand?.id]);
 
-  // Re-render forest stand polygons whenever scores, layers, or selection change
+  // Re-build GeoJSON forest stand polygons & floating % badges whenever scores, layers, or selection change
   useEffect(() => {
     const map = mapRef.current;
-    const group = polygonsLayerRef.current;
-    if (!map || !group) return;
-
-    group.clearLayers();
-
-    // Ensure SVG hatch pattern exists once first polygon creates the SVG renderer
-    const ensureHatchPattern = () => {
-      const svgEl = map.getPanes().overlayPane.querySelector('svg');
-      if (svgEl && !svgEl.querySelector('#nsg-crimson-hatch')) {
-        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-        defs.innerHTML = `
-          <pattern id="nsg-crimson-hatch" width="8" height="8" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
-            <rect width="8" height="8" fill="#B91C1C" fill-opacity="0.14" />
-            <line x1="0" y1="0" x2="0" y2="8" stroke="#991B1B" stroke-width="2.2" stroke-opacity="0.72" />
-          </pattern>
-        `;
-        svgEl.insertBefore(defs, svgEl.firstChild);
-      }
-    };
+    if (!map) return;
 
     // Detect if high-res surveyed NRW stands are present near the current zoomed-in viewport
     const highResInView = stands.filter((s) => {
@@ -350,10 +770,9 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
       if (stand.isProtectedNSG && !layers.showNSG) return false;
       if (!stand.isProtectedNSG && pred.probability < layers.minProbability) return false;
       if (hideCuratedLocally && stand.source === 'curated-nrw' && stand.id !== selectedStandId) {
-        // Hide coarse overview blobs that sit inside a loaded high-res NRW survey area
         const [lat, lng] = stand.centroid;
         const nearHighRes = highResInView.some(
-          (hr) => Math.abs(hr.centroid[0] - lat) < 0.085 && Math.abs(hr.centroid[1] - lng) < 0.125
+          (hr) => Math.abs(hr.centroid[0] - lat) < 0.045 && Math.abs(hr.centroid[1] - lng) < 0.065
         );
         if (nearHighRes) return false;
       }
@@ -366,7 +785,10 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
       if (renderList.length <= 45) {
         renderList.forEach((s) => {
           const p = predictions[s.id];
-          if (p && (!s.isProtectedNSG ? p.probability >= 45 || s.id === selectedStandId : s.id === selectedStandId)) {
+          if (
+            p &&
+            (!s.isProtectedNSG ? p.probability >= 45 || s.id === selectedStandId : s.id === selectedStandId)
+          ) {
             badgeStandIds.add(s.id);
           }
         });
@@ -384,6 +806,11 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
       }
     }
 
+    const features: GeoJsonFeature<GeoJsonPolygonGeometry, StandFeatureProps>[] = [];
+
+    badgeMarkersRef.current.forEach((m) => m.remove());
+    badgeMarkersRef.current = [];
+
     renderList.forEach((stand) => {
       const pred = predictions[stand.id];
       if (!pred) return;
@@ -391,31 +818,6 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
       const isSelected = stand.id === selectedStandId;
       const tierMeta = getTierMeta(pred.tier);
       const isHighRes = stand.source !== 'curated-nrw';
-
-      const poly = L.polygon(stand.coordinates, {
-        color: isSelected ? '#132A1E' : tierMeta.strokeColor,
-        weight: isSelected
-          ? 3.5
-          : stand.isProtectedNSG
-          ? 2.0
-          : isHighRes
-          ? pred.tier === 'peak'
-            ? 2.0
-            : 1.3
-          : pred.tier === 'peak'
-          ? 2.4
-          : 1.6,
-        dashArray: stand.isProtectedNSG ? '5 4' : pred.tier === 'low' ? '4 4' : undefined,
-        fillColor: stand.isProtectedNSG ? 'url(#nsg-crimson-hatch)' : tierMeta.fillColor,
-        fillOpacity: stand.isProtectedNSG
-          ? 0.92
-          : isSelected
-          ? Math.min(0.7, tierMeta.fillOpacity + 0.16)
-          : isHighRes
-          ? Math.min(0.62, tierMeta.fillOpacity + 0.08)
-          : tierMeta.fillOpacity,
-      });
-
       const sourceNote =
         stand.source === 'nrw-wfs-wald'
           ? 'Wald NRW'
@@ -427,39 +829,90 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
           ? 'OSM'
           : 'Übersicht';
 
-      const tooltipHtml = stand.isProtectedNSG
-        ? `<div class="text-xs"><strong class="text-[#991B1B]">NSG · Sammelverbot</strong><br/><span>${stand.name}</span> <span style="color:#6B7280">(${sourceNote})</span></div>`
-        : `<div class="text-xs"><strong>${stand.name}</strong><br/><span class="font-mono font-semibold">${pred.probability}%</span> · ${pred.bestSpeciesName} · <span style="color:#4A5D52">${stand.areaHectares} ha · ${sourceNote}</span></div>`;
-
-      poly.bindTooltip(tooltipHtml, {
-        sticky: true,
-        direction: 'top',
-        className: 'pilz-stand-tooltip',
-      });
-
-      poly.on('click', () => {
-        onSelectStand(stand.id);
-      });
-
-      poly.addTo(group);
+      const ring = toClosedGeoJsonRing(stand.coordinates);
+      if (ring.length >= 4) {
+        features.push({
+          type: 'Feature',
+          properties: {
+            id: stand.id,
+            name: stand.name,
+            sourceNote,
+            areaHectares: stand.areaHectares,
+            isProtectedNSG: stand.isProtectedNSG,
+            isSelected,
+            isDashed: stand.isProtectedNSG || pred.tier === 'low',
+            probability: pred.probability,
+            bestSpeciesName: pred.bestSpeciesName,
+            fillColor: tierMeta.fillColor,
+            fillOpacity: stand.isProtectedNSG
+              ? 0.92
+              : isSelected
+              ? Math.min(0.74, tierMeta.fillOpacity + 0.18)
+              : isHighRes
+              ? Math.min(0.66, tierMeta.fillOpacity + 0.12)
+              : Math.min(0.62, tierMeta.fillOpacity + 0.08),
+            strokeColor: isSelected ? '#132A1E' : tierMeta.strokeColor,
+            strokeWidth: isSelected
+              ? 3.5
+              : stand.isProtectedNSG
+              ? 2.2
+              : isHighRes
+              ? pred.tier === 'peak'
+                ? 2.2
+                : 1.6
+              : pred.tier === 'peak'
+              ? 2.5
+              : 1.8,
+          },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [ring],
+          },
+        });
+      }
 
       if (badgeStandIds.has(stand.id)) {
-        const badgeIcon = L.divIcon({
-          className: 'pilz-score-marker',
-          html: stand.isProtectedNSG
-            ? `<div style="background:#991B1B;color:#FFFFFF;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;padding:2px 6px;border-radius:6px;border:1.5px solid #FFFFFF;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,0.22);">NSG</div>`
-            : `<div style="background:${isSelected ? '#132A1E' : '#FFFFFF'};color:${isSelected ? '#FFFFFF' : '#132A1E'};font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:2px 6px;border-radius:6px;border:1.5px solid ${tierMeta.strokeColor};white-space:nowrap;box-shadow:0 2px 6px rgba(19,42,30,0.18);">${pred.probability}%</div>`,
-          iconSize: [0, 0],
-          iconAnchor: [18, 10],
+        const badgeEl = document.createElement('button');
+        badgeEl.type = 'button';
+        badgeEl.textContent = stand.isProtectedNSG ? 'NSG' : `${pred.probability}%`;
+        badgeEl.style.fontFamily = "'JetBrains Mono', monospace";
+        badgeEl.style.fontSize = stand.isProtectedNSG ? '10px' : '11px';
+        badgeEl.style.fontWeight = '700';
+        badgeEl.style.padding = '2px 6px';
+        badgeEl.style.borderRadius = '6px';
+        badgeEl.style.whiteSpace = 'nowrap';
+        badgeEl.style.cursor = 'pointer';
+        badgeEl.style.lineHeight = '1.2';
+        if (stand.isProtectedNSG) {
+          badgeEl.style.background = '#991B1B';
+          badgeEl.style.color = '#FFFFFF';
+          badgeEl.style.border = '1.5px solid #FFFFFF';
+          badgeEl.style.boxShadow = '0 2px 5px rgba(0,0,0,0.22)';
+        } else {
+          badgeEl.style.background = isSelected ? '#132A1E' : '#FFFFFF';
+          badgeEl.style.color = isSelected ? '#FFFFFF' : '#132A1E';
+          badgeEl.style.border = `1.5px solid ${tierMeta.strokeColor}`;
+          badgeEl.style.boxShadow = '0 2px 6px rgba(19,42,30,0.18)';
+        }
+        badgeEl.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          onSelectStandRef.current(stand.id);
         });
-        L.marker(stand.centroid, { icon: badgeIcon, interactive: true })
-          .on('click', () => onSelectStand(stand.id))
-          .addTo(group);
+
+        const marker = new maplibregl.Marker({ element: badgeEl, anchor: 'center' })
+          .setLngLat(toLngLat(stand.centroid))
+          .addTo(map);
+        badgeMarkersRef.current.push(marker);
       }
     });
 
-    ensureHatchPattern();
-  }, [stands, predictions, layers, selectedStandId, onSelectStand, mapZoom, viewportBounds]);
+    const fc: GeoJsonFeatureCollection = { type: 'FeatureCollection', features };
+    standsGeoJsonRef.current = fc;
+    const src = map.getSource(STAND_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+    if (src) {
+      src.setData(fc as Parameters<maplibregl.GeoJSONSource['setData']>[0]);
+    }
+  }, [stands, predictions, layers, selectedStandId, mapZoom, viewportBounds, styleReadyVersion]);
 
   const handleLocateMe = () => {
     setGpsError(null);
@@ -471,38 +924,41 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
     if (gpsActive && watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
-      gpsMarkerRef.current?.remove();
-      gpsAccuracyRef.current?.remove();
+      hasCenteredGpsRef.current = false;
+      gpsGeoJsonRef.current = EMPTY_FC;
+      const src = mapRef.current?.getSource(GPS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+      src?.setData(EMPTY_FC);
       setGpsActive(false);
       return;
     }
 
     setGpsActive(true);
+    hasCenteredGpsRef.current = false;
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         const map = mapRef.current;
         if (!map) return;
-        const latlng: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-        if (!gpsMarkerRef.current) {
-          gpsAccuracyRef.current = L.circle(latlng, {
-            radius: Math.min(pos.coords.accuracy, 250),
-            color: '#C86D1F',
-            fillColor: '#C86D1F',
-            fillOpacity: 0.14,
-            weight: 1,
-          }).addTo(map);
-          gpsMarkerRef.current = L.circleMarker(latlng, {
-            radius: 7,
-            color: '#FFFFFF',
-            weight: 2.5,
-            fillColor: '#C86D1F',
-            fillOpacity: 1,
-          }).addTo(map);
-          map.setView(latlng, 13, { animate: true });
-        } else {
-          gpsMarkerRef.current.setLatLng(latlng);
-          gpsAccuracyRef.current?.setLatLng(latlng);
-          gpsAccuracyRef.current?.setRadius(Math.min(pos.coords.accuracy, 250));
+        const lng = pos.coords.longitude;
+        const lat = pos.coords.latitude;
+        const radius = Math.min(Math.max(pos.coords.accuracy, 15), 250);
+        const gpsFc: GeoJsonFeatureCollection = {
+          type: 'FeatureCollection',
+          features: [
+            createGeoJsonCircle(lng, lat, radius),
+            {
+              type: 'Feature',
+              properties: { kind: 'point' },
+              geometry: { type: 'Point', coordinates: [lng, lat] },
+            },
+          ],
+        };
+        gpsGeoJsonRef.current = gpsFc;
+        const src = map.getSource(GPS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+        src?.setData(gpsFc as Parameters<maplibregl.GeoJSONSource['setData']>[0]);
+
+        if (!hasCenteredGpsRef.current) {
+          hasCenteredGpsRef.current = true;
+          map.easeTo({ center: [lng, lat], zoom: 12.5, duration: 600 });
         }
       },
       (err) => {
@@ -521,10 +977,9 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
     const map = mapRef.current;
     if (!map) return;
     setDismissedMsg(null);
-    if (map.getZoom() < 12) {
-      // Smoothly zoom into the current center so the surveyed polygons are immediately crisp
+    if (map.getZoom() < 11) {
       const center = map.getCenter();
-      map.setView(center, 12, { animate: true });
+      map.easeTo({ center, zoom: 11.5, duration: 500 });
       const b = {
         south: center.lat - 0.055,
         north: center.lat + 0.055,
@@ -545,7 +1000,7 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
 
   return (
     <div className="relative flex h-full w-full flex-col lg:flex-row">
-      {/* Main Topographic Map Canvas */}
+      {/* Main Topographic Vector Map Canvas */}
       <div className="relative flex-1 overflow-hidden">
         {/* Top Floating Filter Deck (Unified Ultra-Compact Frosted Card) */}
         <div className="pointer-events-none absolute top-1.5 left-1.5 right-1.5 z-[450] flex flex-col gap-1 sm:top-2 sm:left-2 sm:right-2">
@@ -688,6 +1143,32 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
               </div>
 
               <div className="mt-2.5 space-y-2">
+                {/* basemap.de Vector Style Switcher */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-[#132A1E]">basemap.de Stil</span>
+                  <div className="flex items-center gap-1 rounded-lg bg-[#F7F6F2] p-0.5">
+                    {(
+                      [
+                        { id: 'top', label: 'Relief' },
+                        { id: 'col', label: 'Farbe' },
+                      ] as const
+                    ).map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setBasemapStyle(opt.id)}
+                        className={`min-h-[30px] rounded-md px-2.5 text-xs font-semibold transition-colors ${
+                          basemapStyle === opt.id
+                            ? 'bg-[#1B4332] text-white'
+                            : 'text-[#4A5D52] hover:text-[#132A1E]'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-medium text-[#132A1E]">
                     NSG-Schutzgebiete
@@ -708,7 +1189,7 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
 
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-medium text-[#132A1E]">
-                    Auto-Laden (ab Zoom 12)
+                    Auto-Laden (Detailzoom)
                   </span>
                   <button
                     type="button"
@@ -795,8 +1276,8 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
                     </span>
                   </button>
                   <p className="mt-1.5 text-[11px] leading-snug text-[#4A5D52]">
-                    Wald &amp; Holz NRW Basis-DLM, GD NRW FSK05 (1:5.000) Boden/Wasser sowie
-                    LANUV NRW Schutzgebiete.
+                    basemap.de Web Vektor (AdV / GeoBasis-DE) + Wald &amp; Holz NRW, GD NRW
+                    FSK05 (1:5.000) &amp; LANUV NSG.
                   </p>
                 </div>
               </div>
@@ -804,11 +1285,11 @@ export const TopographicMapView: React.FC<TopographicMapViewProps> = ({
           )}
         </div>
 
-        {/* Leaflet Container */}
+        {/* MapLibre GL WebGL Vector Canvas */}
         <div ref={mapContainerRef} className="h-full w-full" />
 
         {/* Right Floating Thumb-Zone Map Action Stack (Compact Apple Maps Style) */}
-        <div className="pointer-events-auto absolute right-1.5 bottom-[52px] z-[450] flex flex-col gap-1 sm:right-2.5 sm:bottom-22 sm:gap-1.5">
+        <div className="pointer-events-auto absolute right-1.5 bottom-[52px] z-[450] flex flex-col gap-1 sm:right-2.5 sm:bottom-[146px] sm:gap-1.5">
           {/* Mobile-only Hi-Res NRW 1-tap button */}
           <button
             type="button"
