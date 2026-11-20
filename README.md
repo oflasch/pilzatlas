@@ -10,6 +10,8 @@ It combines official OpenGeodata.NRW forestry, soil, and nature-reserve layers, 
 
 ```text
 .
+├── Dockerfile                        # Multi-stage Docker build (static PWA + Express WFS proxy)
+├── .dockerignore                     # Excludes node_modules, build outputs & local artifacts
 ├── index.html                        # App entry HTML (German locale, PWA meta tags, Leaflet CSS)
 ├── metadata.json                     # App metadata
 ├── package.json                      # Dependencies & npm scripts
@@ -126,7 +128,7 @@ Running `npm run build` produces a self-contained static site in `dist/`. On a p
 Build locally (or on the VPS):
 
 ```bash
-npm ci
+npm install
 npm run build
 ```
 
@@ -263,6 +265,121 @@ sudo systemctl enable --now pilzatlas-proxy
 *(In Caddy, add `handle /api/* { reverse_proxy 127.0.0.1:3000 }` inside the site block.)*
 
 Verify health via `curl https://pilzatlas.example.com/api/health`.
+
+---
+
+## Deploying with Docker + Apache2 (Ubuntu 24.04 LTS)
+
+The included multi-stage `Dockerfile` packages both the built static PWA (`dist/`, with PWA-safe `Cache-Control` headers) and the Express OpenGeodata.NRW WFS proxy (`/api/nrw/geodata` and `/api/health`) into a minimal non-root Node 22 Alpine container.
+
+### Step 1: Build and Run the Docker Container
+
+On your Ubuntu 24.04 LTS VPS (with Docker installed):
+
+```bash
+# Build the image from the repository root
+docker build -t pilzatlas-nrw:latest .
+
+# Run bound to localhost only (Apache2 handles public HTTPS traffic)
+docker run -d \
+  --name pilzatlas-nrw \
+  --restart unless-stopped \
+  -p 127.0.0.1:3000:3000 \
+  -e PORT=3000 \
+  pilzatlas-nrw:latest
+```
+
+Verify that the container is healthy and serving both the PWA and the WFS proxy:
+
+```bash
+docker ps
+curl -s http://127.0.0.1:3000/api/health
+```
+
+### Step 2: Install Apache2 and Enable Reverse-Proxy Modules
+
+```bash
+sudo apt update
+sudo apt install -y apache2 certbot python3-certbot-apache
+
+sudo a2enmod proxy proxy_http headers ssl rewrite deflate
+sudo systemctl reload apache2
+```
+
+### Step 3: Create the Apache2 VirtualHost
+
+Create `/etc/apache2/sites-available/pilzatlas-nrw.conf`:
+
+```apache
+<VirtualHost *:80>
+    ServerName pilzatlas.example.com
+
+    # Allow Let's Encrypt HTTP-01 challenges; redirect everything else to HTTPS
+    RewriteEngine On
+    RewriteCond %{REQUEST_URI} !^/\.well-known/acme-challenge/
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName pilzatlas.example.com
+
+    # TLS certificates (populated/managed automatically by Certbot below)
+    SSLEngine on
+    SSLCertificateFile /etc/letsencrypt/live/pilzatlas.example.com/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/pilzatlas.example.com/privkey.pem
+    Include /etc/letsencrypt/options-ssl-apache.conf
+
+    # Security & proxy forwarding headers
+    ProxyPreserveHost On
+    ProxyRequests Off
+    ProxyTimeout 30
+    RequestHeader set X-Forwarded-Proto "https"
+    RequestHeader set X-Forwarded-Port "443"
+
+    # Compress HTML/JS/CSS/JSON/SVG responses for mobile clients
+    AddOutputFilterByType DEFLATE text/html text/plain text/css application/javascript application/json image/svg+xml application/manifest+json
+
+    # Reverse-proxy both the static PWA and /api/nrw/geodata to the Docker container
+    ProxyPass / http://127.0.0.1:3000/
+    ProxyPassReverse / http://127.0.0.1:3000/
+
+    ErrorLog ${APACHE_LOG_DIR}/pilzatlas-nrw-error.log
+    CustomLog ${APACHE_LOG_DIR}/pilzatlas-nrw-access.log combined
+</VirtualHost>
+```
+
+### Step 4: Provision Let's Encrypt TLS & Enable the Site
+
+If you do not have certificates for `pilzatlas.example.com` yet, issue them first with Certbot (using a minimal HTTP vhost or standalone/apache mode), then enable the full HTTPS vhost:
+
+```bash
+# Option A: Let Certbot obtain the cert and auto-configure the SSL vhost from a plain port-80 vhost
+sudo certbot certonly --apache -d pilzatlas.example.com
+
+# Enable site, validate Apache2 config, and reload
+sudo a2ensite pilzatlas-nrw.conf
+sudo apache2ctl configtest
+sudo systemctl reload apache2
+```
+
+Verify end-to-end over HTTPS:
+
+```bash
+curl -s https://pilzatlas.example.com/api/health
+```
+
+### Updating the Deployment
+
+```bash
+git pull
+docker build -t pilzatlas-nrw:latest .
+docker stop pilzatlas-nrw && docker rm pilzatlas-nrw
+docker run -d \
+  --name pilzatlas-nrw \
+  --restart unless-stopped \
+  -p 127.0.0.1:3000:3000 \
+  pilzatlas-nrw:latest
+```
 
 ---
 
